@@ -26,10 +26,12 @@ import {
   X,
 } from "lucide-react";
 import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from "react";
+import { padImageBlob } from "./image-padding";
 
 type Step = "home" | "editor" | "templates" | "result";
 type Tool = "convert" | "compress" | "resize" | "crop";
 type OutputFormat = "jpeg" | "png" | "webp";
+type SizeMode = "compress" | "enlarge";
 
 type ImageInfo = {
   file: File;
@@ -44,6 +46,7 @@ type ResultInfo = {
   width: number;
   height: number;
   format: OutputFormat;
+  sizeMode?: SizeMode;
 };
 
 type Preset = {
@@ -60,7 +63,7 @@ type Preset = {
 
 const tools = [
   { id: "convert" as Tool, name: "格式转换", detail: "JPG、PNG、WebP", icon: RefreshCw, color: "blue" },
-  { id: "compress" as Tool, name: "压缩图片", detail: "精准控制体积", icon: Minimize2, color: "green" },
+  { id: "compress" as Tool, name: "文件体积", detail: "压缩或增大体积", icon: Minimize2, color: "green" },
   { id: "resize" as Tool, name: "调整尺寸", detail: "自定义宽高", icon: Maximize2, color: "violet" },
   { id: "crop" as Tool, name: "模板裁剪", detail: "热门封面尺寸", icon: Crop, color: "orange" },
 ];
@@ -111,6 +114,7 @@ export default function Home() {
   const [image, setImage] = useState<ImageInfo | null>(null);
   const [result, setResult] = useState<ResultInfo | null>(null);
   const [outputFormat, setOutputFormat] = useState<OutputFormat>("jpeg");
+  const [sizeMode, setSizeMode] = useState<SizeMode>("compress");
   const [targetKB, setTargetKB] = useState(200);
   const [quality, setQuality] = useState(82);
   const [resizeWidth, setResizeWidth] = useState(1200);
@@ -221,6 +225,13 @@ export default function Home() {
     if (ratioLocked) setResizeWidth(Math.round((safe / image.height) * image.width));
   };
 
+  const selectSizeMode = (mode: SizeMode) => {
+    setSizeMode(mode);
+    if (mode === "enlarge" && image) {
+      setTargetKB(Math.min(60_000, Math.ceil(image.file.size / 1024) + 512));
+    }
+  };
+
   const processImage = async () => {
     if (!image) return;
     setProcessing(true);
@@ -270,7 +281,7 @@ export default function Home() {
       const mime = `image/${outputFormat}`;
       let blob: Blob;
 
-      if (activeTool === "compress") {
+      if (activeTool === "compress" && sizeMode === "compress") {
         const target = Math.max(10, targetKB) * 1024;
 
         const encodeAtBestQuality = async (targetCanvas: HTMLCanvasElement) => {
@@ -313,12 +324,20 @@ export default function Home() {
           outputWidth = image.width;
           outputHeight = image.height;
         }
+      } else if (activeTool === "compress" && sizeMode === "enlarge") {
+        const target = Math.max(10, targetKB) * 1024;
+        if (target > 60 * 1024 * 1024) throw new Error("增容目标最大支持 60 MB");
+        const baseBlob = await canvasToBlob(canvas, mime, quality / 100);
+        if (target <= baseBlob.size) {
+          throw new Error(`增容目标需大于当前导出体积 ${formatBytes(baseBlob.size)}`);
+        }
+        blob = await padImageBlob(baseBlob, outputFormat, target);
       } else {
         blob = await canvasToBlob(canvas, mime, quality / 100);
       }
       if (blob.type !== mime) throw new Error(`当前浏览器不支持导出 ${formatLabel[outputFormat]}，请选择其他格式`);
       if (result?.url) URL.revokeObjectURL(result.url);
-      setResult({ blob, url: URL.createObjectURL(blob), width: outputWidth, height: outputHeight, format: outputFormat });
+      setResult({ blob, url: URL.createObjectURL(blob), width: outputWidth, height: outputHeight, format: outputFormat, sizeMode: activeTool === "compress" ? sizeMode : undefined });
       setStep("result");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "处理失败，请换一张图片重试");
@@ -354,6 +373,7 @@ export default function Home() {
   };
 
   const savedPercent = image && result ? Math.max(0, Math.round((1 - result.blob.size / image.file.size) * 100)) : 0;
+  const growthPercent = image && result ? Math.max(0, Math.round((result.blob.size / image.file.size - 1) * 100)) : 0;
 
   return (
     <main className="site-shell">
@@ -365,7 +385,7 @@ export default function Home() {
         </button>
         <nav className="desktop-nav" aria-label="主要导航">
           <button onClick={() => beginTool("convert")}>格式转换</button>
-          <button onClick={() => beginTool("compress")}>图片压缩</button>
+          <button onClick={() => beginTool("compress")}>文件体积</button>
           <button onClick={() => beginTool("resize")}>调整尺寸</button>
           <button onClick={() => beginTool("crop")}>封面模板</button>
         </nav>
@@ -389,7 +409,7 @@ export default function Home() {
           <div className="hero-copy">
             <span className="eyebrow"><WandSparkles size={15} /> 免费、快速、无需上传</span>
             <h1>图片处理，<span>一步完成</span></h1>
-            <p>转换格式、压缩体积、修改尺寸。所有常用工具，都在一个清爽的工作台里。</p>
+            <p>转换格式、压缩或增大体积、修改尺寸。所有常用工具，都在一个清爽的工作台里。</p>
           </div>
 
           <div className="upload-layout">
@@ -463,19 +483,23 @@ export default function Home() {
 
                 {activeTool === "compress" && (
                   <div className="control-section">
-                    <div className="section-title"><div><h2>压缩设置</h2><p>尽量接近目标体积并保留画质</p></div></div>
+                    <div className="section-title"><div><h2>文件体积</h2><p>{sizeMode === "compress" ? "尽量接近目标体积并保留画质" : "增加文件字节，不改变可见画面"}</p></div></div>
+                    <div className="size-mode-toggle" role="group" aria-label="体积处理模式">
+                      <button className={sizeMode === "compress" ? "active" : ""} onClick={() => selectSizeMode("compress")}><Minimize2 size={15} />压缩体积</button>
+                      <button className={sizeMode === "enlarge" ? "active" : ""} onClick={() => selectSizeMode("enlarge")}><Maximize2 size={15} />增大体积</button>
+                    </div>
                     <label className="field-label">目标体积</label>
-                    <div className="input-unit"><input type="number" min="10" max="30000" value={targetKB} onChange={(event) => setTargetKB(Number(event.target.value))} /><span>KB</span><ChevronDown size={15} /></div>
-                    <div className="range-heading"><label>压缩格式</label><span>{outputFormat === "webp" ? "推荐" : outputFormat === "jpeg" ? "兼容性好" : "无损"}</span></div>
+                    <div className="input-unit"><input type="number" min="10" max="60000" value={targetKB} onChange={(event) => setTargetKB(Number(event.target.value))} /><span>KB</span><ChevronDown size={15} /></div>
+                    <div className="range-heading"><label>文件格式</label><span>{outputFormat === "webp" ? "推荐" : outputFormat === "jpeg" ? "兼容性好" : "无损"}</span></div>
                     <div className="compress-format-options">
                       {(["webp", "jpeg", "png"] as OutputFormat[]).map((format) => (
                         <button key={format} className={outputFormat === format ? "active" : ""} onClick={() => setOutputFormat(format)}>{formatLabel[format]}</button>
                       ))}
                     </div>
-                    <div className="range-heading"><label htmlFor="quality">画质</label><span>{quality >= 90 ? "极佳" : quality >= 75 ? "推荐" : "较小"} · {quality}%</span></div>
+                    <div className="range-heading"><label htmlFor="quality">{sizeMode === "compress" ? "画质" : "基础画质"}</label><span>{quality >= 90 ? "极佳" : quality >= 75 ? "推荐" : "较小"} · {quality}%</span></div>
                     <input id="quality" className="range" type="range" min="10" max="100" value={quality} onChange={(event) => setQuality(Number(event.target.value))} style={{ "--value": `${quality}%` } as React.CSSProperties} />
-                    <p className="helper">优先保持原始分辨率；最低画质仍超出目标时，会智能缩小像素尺寸以确保压缩有效。</p>
-                    {outputFormat === "png" && <p className="helper warning">PNG 不支持有损画质调节，达到较小目标体积时可能明显降低分辨率；照片建议选择 WebP 或 JPG。</p>}
+                    {sizeMode === "compress" ? <p className="helper">优先保持原始分辨率；最低画质仍超出目标时，会智能缩小像素尺寸以确保压缩有效。</p> : <p className="helper info">增容使用图片格式允许的注释或填充数据，不添加噪点、不改变分辨率，也不会凭空提升画质。</p>}
+                    {sizeMode === "compress" && outputFormat === "png" && <p className="helper warning">PNG 不支持有损画质调节，达到较小目标体积时可能明显降低分辨率；照片建议选择 WebP 或 JPG。</p>}
                   </div>
                 )}
 
@@ -500,7 +524,7 @@ export default function Home() {
                 </div>
                 {error && <div className="error-banner compact" role="alert">{error}</div>}
               </div>
-              <div className="sticky-action"><button className="primary-button" onClick={processImage} disabled={processing}>{processing ? <><span className="spinner" />正在处理</> : <>开始处理<ArrowRight size={19} /></>}</button></div>
+              <div className="sticky-action"><button className="primary-button" onClick={processImage} disabled={processing}>{processing ? <><span className="spinner" />正在处理</> : <>{activeTool === "compress" ? sizeMode === "compress" ? "开始压缩" : "开始增大" : "开始处理"}<ArrowRight size={19} /></>}</button></div>
             </div>
           </div>
         </section>
@@ -561,7 +585,7 @@ export default function Home() {
                 <div><small>格式</small><strong>{formatLabel[result.format]}</strong></div>
                 <div><small>尺寸</small><strong>{result.width}×{result.height}</strong></div>
                 <div><small>体积</small><strong>{formatBytes(result.blob.size)}</strong></div>
-                <div className="saving"><small>节省空间</small><strong>{savedPercent}%</strong></div>
+                <div className={result.sizeMode === "enlarge" ? "growth" : "saving"}><small>{result.sizeMode === "enlarge" ? "体积增加" : "节省空间"}</small><strong>{result.sizeMode === "enlarge" ? `+${growthPercent}%` : `${savedPercent}%`}</strong></div>
               </div>
               <button className="primary-button download-button" onClick={downloadResult}><Download size={20} />下载图片</button>
               <button className="secondary-button" onClick={() => setStep("editor")}><RefreshCw size={17} />继续调整</button>

@@ -44,6 +44,9 @@ test("keeps production source and theme foundations in place", async () => {
   assert.match(page, /type Step = "home" \| "editor" \| "templates" \| "result"/);
   assert.match(page, /localStorage\.setItem\("pixel-workshop-theme"/);
   assert.match(page, /targetKB/);
+  assert.match(page, /padImageBlob/);
+  assert.match(page, /增大体积/);
+  assert.match(page, /体积增加/);
   assert.match(page, /encodeAtBestQuality/);
   assert.match(page, /Math\.sqrt\(target \/ blob\.size\)/);
   assert.match(page, /抖音主页封面/);
@@ -56,6 +59,7 @@ test("keeps production source and theme foundations in place", async () => {
   assert.match(css, /@media \(max-width: 480px\)/);
   assert.match(css, /prefers-reduced-motion/);
   assert.match(packageJson, /"lucide-react"/);
+  assert.match(packageJson, /node --test tests\/\*\.test\.mjs/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   await assert.rejects(access(new URL("app/_sites-preview/SkeletonPreview.tsx", root)));
 });

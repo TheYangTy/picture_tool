@@ -142,6 +142,10 @@ button:disabled { cursor: not-allowed; opacity: .7; }
 .helper { margin: 11px 0 0; color: var(--text-tertiary); font-size: 11px; line-height: 1.5; }
 .helper.warning { margin-top: 7px; padding: 9px 10px; border-radius: 9px; color: #b54708; background: #fffaeb; }
 [data-theme="dark"] .helper.warning { color: #fec84b; background: #33270b; }
+.helper.info { padding: 10px 11px; border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border)); border-radius: 10px; color: var(--text-secondary); background: var(--surface-blue); }
+.size-mode-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 20px; padding: 4px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-soft); }
+.size-mode-toggle button { min-height: 40px; display: flex; align-items: center; justify-content: center; gap: 7px; border: 0; border-radius: 9px; color: var(--text-secondary); background: transparent; cursor: pointer; font-size: 12px; font-weight: 650; }
+.size-mode-toggle button.active { color: var(--primary); background: var(--surface); box-shadow: var(--shadow-sm); }
 .compress-format-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-top: 9px; }
 .compress-format-options button { min-height: 40px; border: 1px solid var(--border); border-radius: 10px; color: var(--text-secondary); background: var(--surface-raised); cursor: pointer; font-size: 12px; font-weight: 650; }
 .compress-format-options button:hover { color: var(--primary); border-color: var(--primary); }
@@ -207,7 +211,7 @@ button:disabled { cursor: not-allowed; opacity: .7; }
 .result-stats { display: grid; grid-template-columns: 1fr 1.25fr; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
 .result-stats > div { min-height: 76px; display: flex; flex-direction: column; justify-content: center; padding: 0 15px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 .result-stats > div:nth-child(2n) { border-right: 0; }.result-stats > div:nth-child(n+3) { border-bottom: 0; }
-.result-stats small { margin-bottom: 5px; color: var(--text-secondary); font-size: 10px; }.result-stats strong { font-size: 14px; }.result-stats .saving strong { color: var(--success); }
+.result-stats small { margin-bottom: 5px; color: var(--text-secondary); font-size: 10px; }.result-stats strong { font-size: 14px; }.result-stats .saving strong { color: var(--success); }.result-stats .growth strong { color: var(--primary); }
 .download-button { width: 100%; margin-top: 16px; }
 .secondary-button { width: 100%; min-height: 48px; margin-top: 9px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--primary); border-radius: 13px; color: var(--primary); background: transparent; cursor: pointer; font-weight: 650; }
 .next-actions { margin-top: 24px; }.next-actions p { margin: 0 0 10px; color: var(--text-secondary); font-size: 11px; font-weight: 650; }.next-actions > div { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
