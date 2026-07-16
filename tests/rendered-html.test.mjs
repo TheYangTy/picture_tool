@@ -41,10 +41,14 @@ test("keeps production source and theme foundations in place", async () => {
   ]);
 
   assert.match(page, /canvas\.toBlob/);
-  assert.match(page, /type Step = "home" \| "editor" \| "templates" \| "result"/);
+  assert.match(page, /type Step = "home" \| "editor" \| "batch" \| "templates" \| "result"/);
   assert.match(page, /localStorage\.setItem\("pixel-workshop-theme"/);
   assert.match(page, /targetKB/);
   assert.match(page, /padImageBlob/);
+  assert.match(page, /createZipBlob/);
+  assert.match(page, /批量处理图片/);
+  assert.match(page, /下载 ZIP/);
+  assert.match(page, /multiple onChange/);
   assert.match(page, /增大体积/);
   assert.match(page, /体积增加/);
   assert.match(page, /encodeAtBestQuality/);

@@ -168,6 +168,35 @@ button:disabled { cursor: not-allowed; opacity: .7; }
 .spinner { width: 17px; height: 17px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+.batch-grid { display: grid; grid-template-columns: minmax(0, 1.18fr) minmax(350px, .72fr); gap: 20px; align-items: start; }
+.batch-list-panel { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-md); overflow: hidden; }
+.batch-list-heading { min-height: 76px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 20px; border-bottom: 1px solid var(--border); }
+.batch-list-heading h2 { margin: 0 0 4px; font-size: 17px; letter-spacing: -.02em; }
+.batch-list-heading p { margin: 0; color: var(--text-secondary); font-size: 11px; }
+.batch-list-heading > span { padding: 6px 9px; border-radius: 8px; color: var(--primary); background: var(--surface-blue); font-size: 11px; font-weight: 700; }
+.batch-list { max-height: 650px; overflow-y: auto; }
+.batch-item { min-height: 88px; display: grid; grid-template-columns: 58px minmax(0, 1fr) auto 34px; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.batch-item:last-child { border-bottom: 0; }
+.batch-item > img { width: 58px; height: 58px; display: block; border-radius: 10px; object-fit: cover; background: var(--surface-soft); }
+.batch-item-copy { min-width: 0; }
+.batch-item-copy strong, .batch-item-copy span, .batch-item-copy em { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.batch-item-copy strong { margin-bottom: 5px; font-size: 13px; }
+.batch-item-copy span { color: var(--text-secondary); font-size: 10px; }
+.batch-item-copy em { margin-top: 4px; color: var(--success); font-size: 10px; font-style: normal; font-weight: 600; }
+.batch-item-copy .batch-error { color: var(--danger); }
+.batch-status { padding: 6px 8px; border-radius: 8px; color: var(--text-secondary); background: var(--surface-soft); font-size: 10px; font-weight: 650; white-space: nowrap; }
+.batch-status.processing { color: var(--primary); background: var(--surface-blue); }
+.batch-status.done { color: var(--success); background: var(--success-soft); }
+.batch-status.error { color: var(--danger); background: var(--danger-soft); }
+.batch-remove { width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 9px; color: var(--text-tertiary); background: transparent; cursor: pointer; }
+.batch-remove:hover { color: var(--danger); background: var(--danger-soft); }
+.batch-tabs { grid-template-columns: repeat(3, 1fr); }
+.batch-controls .field-label { margin-top: 22px; }
+.batch-privacy { display: flex; align-items: flex-start; gap: 8px; margin-top: 20px; padding: 11px; border-radius: 11px; color: var(--text-secondary); background: var(--success-soft); font-size: 10px; line-height: 1.5; }
+.batch-privacy svg { flex: none; color: var(--success); }
+.batch-actions { display: grid; gap: 8px; }
+.batch-actions .secondary-button { margin-top: 0; }
+
 .crop-preview-panel { padding: 22px; }
 .crop-stage { min-height: 340px; max-height: 580px; position: relative; overflow: hidden; border-radius: 14px; background: #0c1320; }
 .crop-stage > img { width: 100%; height: 100%; position: absolute; inset: 0; object-fit: cover; }
@@ -224,7 +253,7 @@ button:disabled { cursor: not-allowed; opacity: .7; }
   .desktop-nav { display: none; }.mobile-menu { display: grid; }
   .home-view, .workspace, .result-view { width: min(100% - 28px, 620px); }
   .home-view { padding: 38px 0 28px; }.hero-copy { margin-bottom: 26px; }.hero-copy h1 { font-size: 37px; }.hero-copy p { font-size: 14px; line-height: 1.65; }
-  .upload-layout, .editor-grid, .template-layout, .result-grid { grid-template-columns: 1fr; }
+  .upload-layout, .editor-grid, .template-layout, .result-grid, .batch-grid { grid-template-columns: 1fr; }
   .upload-card { min-height: 320px; padding: 28px 20px; }.feature-card { min-height: 124px; padding: 17px; gap: 16px; }
   .trust-row { gap: 14px; flex-wrap: wrap; }.trust-row span { font-size: 11px; }
   .workspace { padding-top: 20px; }.workspace-heading { gap: 10px; }.workspace-heading h1 { font-size: 17px; }.back-button { width: 42px; padding: 0; justify-content: center; font-size: 0; }.subtle-button { padding: 0 10px; font-size: 11px; }
@@ -232,6 +261,7 @@ button:disabled { cursor: not-allowed; opacity: .7; }
   .controls-panel, .template-panel, .result-panel { position: static; border-radius: 18px; }
   .controls-panel .sticky-action, .template-panel .sticky-action { position: sticky; bottom: 0; z-index: 8; padding-bottom: max(14px, env(safe-area-inset-bottom)); backdrop-filter: blur(16px); }
   .crop-stage { min-height: 260px; }.preset-list { max-height: none; }
+  .batch-list-panel { border-radius: 18px; }.batch-list { max-height: none; }
   .success-heading { justify-content: flex-start; }.compare-stage { min-height: 380px; }
 }
 
@@ -246,6 +276,11 @@ button:disabled { cursor: not-allowed; opacity: .7; }
   .control-body { padding: 18px; }.tool-tabs { padding: 7px; }.tool-tabs button { min-height: 49px; }
   .format-options button { grid-template-columns: .8fr 1.2fr 18px; }
   .dimension-row { grid-template-columns: 1fr 30px 1fr; }.ratio-lock { width: 30px; }
+  .batch-list-heading { min-height: 68px; padding: 0 14px; }
+  .batch-item { grid-template-columns: 50px minmax(0, 1fr) 30px; gap: 10px; padding: 11px 12px; }
+  .batch-item > img { width: 50px; height: 50px; }
+  .batch-status { grid-column: 2; justify-self: start; margin-top: -5px; padding: 4px 7px; }
+  .batch-remove { grid-column: 3; grid-row: 1 / span 2; }
   .crop-preview-panel { padding: 12px; }.crop-stage { min-height: 230px; }.crop-caption button { font-size: 0; width: 38px; height: 38px; justify-content: center; }
   .result-view { padding-top: 26px; }.success-heading { gap: 12px; }.success-icon { width: 48px; height: 48px; }.success-heading h1 { font-size: 21px; }.success-heading p { display: none; }
   .compare-card { padding: 10px; }.compare-stage { min-height: 320px; }.result-panel { padding: 14px; }

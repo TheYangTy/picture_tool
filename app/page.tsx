@@ -3,12 +3,14 @@
 import {
   ArrowLeft,
   ArrowRight,
+  Archive,
   Check,
   ChevronDown,
   Crop,
   Download,
   FileImage,
   ImageIcon,
+  Images,
   LockKeyhole,
   Maximize2,
   Menu,
@@ -21,14 +23,16 @@ import {
   SlidersHorizontal,
   Sparkles,
   Sun,
+  Trash2,
   Upload,
   WandSparkles,
   X,
 } from "lucide-react";
 import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import { padImageBlob } from "./image-padding";
+import { createZipBlob } from "./zip";
 
-type Step = "home" | "editor" | "templates" | "result";
+type Step = "home" | "editor" | "batch" | "templates" | "result";
 type Tool = "convert" | "compress" | "resize" | "crop";
 type OutputFormat = "jpeg" | "png" | "webp";
 type SizeMode = "compress" | "enlarge";
@@ -59,6 +63,17 @@ type Preset = {
   tone: string;
   note: string;
   verifiedAt: string;
+};
+
+type BatchStatus = "ready" | "processing" | "done" | "error";
+
+type BatchItem = ImageInfo & {
+  id: string;
+  status: BatchStatus;
+  result?: Blob;
+  resultWidth?: number;
+  resultHeight?: number;
+  error?: string;
 };
 
 const tools = [
@@ -112,6 +127,7 @@ export default function Home() {
   const [step, setStep] = useState<Step>("home");
   const [activeTool, setActiveTool] = useState<Tool>("compress");
   const [image, setImage] = useState<ImageInfo | null>(null);
+  const [batchItems, setBatchItems] = useState<BatchItem[]>([]);
   const [result, setResult] = useState<ResultInfo | null>(null);
   const [outputFormat, setOutputFormat] = useState<OutputFormat>("jpeg");
   const [sizeMode, setSizeMode] = useState<SizeMode>("compress");
@@ -205,10 +221,52 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleInput = (event: ChangeEvent<HTMLInputElement>) => handleFile(event.target.files?.[0]);
+  const handleFiles = async (files: File[]) => {
+    if (!files.length) return;
+    if (files.length === 1) {
+      await handleFile(files[0]);
+      return;
+    }
+
+    setError("");
+    const candidates = files.slice(0, 20).filter((file) => file.type.startsWith("image/") && file.size <= 30 * 1024 * 1024);
+    const loaded = await Promise.all(candidates.map(async (file, index) => {
+      const url = URL.createObjectURL(file);
+      try {
+        const decoded = await loadImage(url);
+        return {
+          id: `${Date.now()}-${index}-${file.name}`,
+          file,
+          url,
+          width: decoded.naturalWidth,
+          height: decoded.naturalHeight,
+          status: "ready" as BatchStatus,
+        };
+      } catch {
+        URL.revokeObjectURL(url);
+        return null;
+      }
+    }));
+    const valid = loaded.filter((item): item is BatchItem => Boolean(item));
+    if (!valid.length) {
+      setError("没有找到当前浏览器可以读取的图片");
+      return;
+    }
+    batchItems.forEach((item) => URL.revokeObjectURL(item.url));
+    setBatchItems(valid);
+    if (activeTool === "crop") setActiveTool("convert");
+    setStep("batch");
+    if (files.length > 20) setError("一次最多处理 20 张，已载入前 20 张中的有效图片");
+    else if (valid.length < files.length) setError("部分图片因格式不支持或超过 30 MB 未载入");
+  };
+
+  const handleInput = (event: ChangeEvent<HTMLInputElement>) => {
+    void handleFiles(Array.from(event.target.files ?? []));
+    event.target.value = "";
+  };
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-    handleFile(event.dataTransfer.files?.[0]);
+    void handleFiles(Array.from(event.dataTransfer.files ?? []));
   };
 
   const updateWidth = (value: number) => {
@@ -346,6 +404,122 @@ export default function Home() {
     }
   };
 
+  const processBatch = async () => {
+    if (!batchItems.length) return;
+    setProcessing(true);
+    setError("");
+    const mime = `image/${outputFormat}`;
+
+    for (const item of batchItems) {
+      setBatchItems((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: "processing", error: undefined } : entry));
+      try {
+        const source = await loadImage(item.url);
+        let outputWidth = activeTool === "resize" ? Math.max(1, Math.min(12000, resizeWidth)) : item.width;
+        let outputHeight = activeTool === "resize" ? Math.max(1, Math.round(outputWidth * item.height / item.width)) : item.height;
+        if (outputWidth * outputHeight > 36_000_000) throw new Error("输出超过 3600 万像素");
+
+        const render = (width: number, height: number) => {
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const context = canvas.getContext("2d", { alpha: outputFormat !== "jpeg" });
+          if (!context) throw new Error("无法创建图片画布");
+          context.imageSmoothingEnabled = true;
+          context.imageSmoothingQuality = "high";
+          if (outputFormat === "jpeg") {
+            context.fillStyle = "#ffffff";
+            context.fillRect(0, 0, width, height);
+          }
+          context.drawImage(source, 0, 0, width, height);
+          return canvas;
+        };
+
+        let canvas = render(outputWidth, outputHeight);
+        let blob: Blob;
+        if (activeTool === "compress") {
+          const target = Math.max(10, targetKB) * 1024;
+          const encode = async (targetCanvas: HTMLCanvasElement) => {
+            if (outputFormat === "png") return canvasToBlob(targetCanvas, mime);
+            let low = 0.06;
+            let high = Math.max(0.12, quality / 100);
+            let smallest = await canvasToBlob(targetCanvas, mime, low);
+            let best: Blob | null = smallest.size <= target ? smallest : null;
+            for (let attempt = 0; attempt < 10; attempt += 1) {
+              const currentQuality = (low + high) / 2;
+              const candidate = await canvasToBlob(targetCanvas, mime, currentQuality);
+              if (candidate.size < smallest.size) smallest = candidate;
+              if (candidate.size <= target) {
+                if (!best || candidate.size > best.size) best = candidate;
+                low = currentQuality;
+              } else {
+                high = currentQuality;
+              }
+            }
+            return best ?? smallest;
+          };
+          blob = await encode(canvas);
+          for (let attempt = 0; blob.size > target && attempt < 7; attempt += 1) {
+            if (Math.min(outputWidth, outputHeight) <= 320) break;
+            const scale = Math.max(0.55, Math.min(0.9, Math.sqrt(target / blob.size) * 0.95));
+            outputWidth = Math.max(1, Math.round(outputWidth * scale));
+            outputHeight = Math.max(1, Math.round(outputHeight * scale));
+            canvas = render(outputWidth, outputHeight);
+            blob = await encode(canvas);
+          }
+        } else {
+          blob = await canvasToBlob(canvas, mime, quality / 100);
+        }
+        if (blob.type !== mime) throw new Error(`浏览器不支持导出 ${formatLabel[outputFormat]}`);
+        setBatchItems((current) => current.map((entry) => entry.id === item.id ? {
+          ...entry,
+          status: "done",
+          result: blob,
+          resultWidth: outputWidth,
+          resultHeight: outputHeight,
+        } : entry));
+      } catch (caught) {
+        setBatchItems((current) => current.map((entry) => entry.id === item.id ? {
+          ...entry,
+          status: "error",
+          error: caught instanceof Error ? caught.message : "处理失败",
+        } : entry));
+      }
+    }
+    setProcessing(false);
+  };
+
+  const downloadBatch = async () => {
+    const completed = batchItems.filter((item) => item.status === "done" && item.result);
+    if (!completed.length) return;
+    setProcessing(true);
+    setError("");
+    try {
+      const extension = outputFormat === "jpeg" ? "jpg" : outputFormat;
+      const zip = await createZipBlob(completed.map((item, index) => ({
+        name: `${String(index + 1).padStart(2, "0")}-${item.file.name.replace(/\.[^.]+$/, "") || "image"}.${extension}`,
+        data: item.result!,
+      })));
+      const url = URL.createObjectURL(zip);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `pixel-workshop-${completed.length}-images.zip`;
+      anchor.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "ZIP 生成失败");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const removeBatchItem = (id: string) => {
+    setBatchItems((current) => {
+      const removed = current.find((item) => item.id === id);
+      if (removed) URL.revokeObjectURL(removed.url);
+      return current.filter((item) => item.id !== id);
+    });
+  };
+
   const downloadResult = () => {
     if (!result || !image) return;
     const anchor = document.createElement("a");
@@ -374,10 +548,12 @@ export default function Home() {
 
   const savedPercent = image && result ? Math.max(0, Math.round((1 - result.blob.size / image.file.size) * 100)) : 0;
   const growthPercent = image && result ? Math.max(0, Math.round((result.blob.size / image.file.size - 1) * 100)) : 0;
+  const batchDone = batchItems.filter((item) => item.status === "done").length;
+  const batchFailed = batchItems.filter((item) => item.status === "error").length;
 
   return (
     <main className="site-shell">
-      <input ref={inputRef} className="visually-hidden" type="file" accept="image/*,.heic,.heif" onChange={handleInput} />
+      <input ref={inputRef} className="visually-hidden" type="file" accept="image/*,.heic,.heif" multiple onChange={handleInput} />
       <header className="topbar">
         <button className="brand" onClick={reset} aria-label="返回首页">
           <span className="brand-mark"><Sparkles size={18} strokeWidth={2.5} /></span>
@@ -417,10 +593,10 @@ export default function Home() {
               <div className="upload-icon"><Upload size={30} /></div>
               <div>
                 <h2>选择图片或拖到这里</h2>
-                <p>支持 JPG、PNG、WebP 等浏览器可读取格式</p>
+                <p>支持单张处理，或一次选择最多 20 张</p>
               </div>
               <button className="primary-button" onClick={() => openPicker()}><ImageIcon size={19} />选择图片</button>
-              <span className="upload-limit">单张最大 30 MB · 图片仅在当前设备处理</span>
+              <span className="upload-limit">每张最大 30 MB · 批量结果可打包下载 · 图片仅在当前设备处理</span>
             </div>
 
             <div className="feature-grid">
@@ -440,6 +616,69 @@ export default function Home() {
             <span><ShieldCheck size={17} />本地处理，保护隐私</span>
             <span><SlidersHorizontal size={17} />画质与体积精细控制</span>
             <span><Sparkles size={17} />无需注册即可下载</span>
+          </div>
+        </section>
+      )}
+
+      {step === "batch" && batchItems.length > 0 && (
+        <section className="workspace batch-workspace page-enter">
+          <div className="workspace-heading">
+            <button className="back-button" onClick={reset}><ArrowLeft size={19} />返回</button>
+            <div><h1>批量处理图片</h1><p>{batchItems.length} 张图片 · 统一设置，本地完成</p></div>
+            <button className="subtle-button" onClick={() => openPicker()}><Images size={16} />重新选择</button>
+          </div>
+
+          <div className="batch-grid">
+            <div className="batch-list-panel">
+              <div className="batch-list-heading">
+                <div><h2>图片队列</h2><p>{batchDone ? `已完成 ${batchDone}/${batchItems.length}` : "准备开始处理"}{batchFailed ? ` · ${batchFailed} 张失败` : ""}</p></div>
+                <span>{batchItems.length}/20</span>
+              </div>
+              <div className="batch-list">
+                {batchItems.map((item) => (
+                  <div className="batch-item" key={item.id}>
+                    <img src={item.url} alt="" />
+                    <div className="batch-item-copy">
+                      <strong>{item.file.name}</strong>
+                      <span>{item.width}×{item.height} · {formatBytes(item.file.size)}</span>
+                      {item.status === "done" && item.result && <em>{item.resultWidth}×{item.resultHeight} · {formatBytes(item.result.size)}</em>}
+                      {item.status === "error" && <em className="batch-error">{item.error}</em>}
+                    </div>
+                    <span className={`batch-status ${item.status}`}>
+                      {item.status === "ready" ? "待处理" : item.status === "processing" ? "处理中" : item.status === "done" ? "已完成" : "失败"}
+                    </span>
+                    <button className="batch-remove" onClick={() => removeBatchItem(item.id)} disabled={processing} aria-label={`移除 ${item.file.name}`}><Trash2 size={16} /></button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="controls-panel batch-controls">
+              <div className="tool-tabs batch-tabs" role="tablist">
+                {tools.filter((tool) => tool.id !== "crop").map(({ id, name, icon: Icon }) => (
+                  <button key={id} className={activeTool === id ? "active" : ""} onClick={() => setActiveTool(id)} role="tab"><Icon size={17} /><span>{name.replace("图片", "")}</span></button>
+                ))}
+              </div>
+              <div className="control-body">
+                <div className="control-section">
+                  <div className="section-title"><div><h2>批量输出设置</h2><p>{activeTool === "compress" ? "每张尽量接近同一目标体积" : activeTool === "resize" ? "按统一宽度等比缩放" : "全部转换为同一种格式"}</p></div></div>
+                  <div className="range-heading"><label>输出格式</label><span>{formatLabel[outputFormat]}</span></div>
+                  <div className="compress-format-options">
+                    {(["webp", "jpeg", "png"] as OutputFormat[]).map((format) => <button key={format} className={outputFormat === format ? "active" : ""} onClick={() => setOutputFormat(format)}>{formatLabel[format]}</button>)}
+                  </div>
+                  {activeTool === "compress" && <><label className="field-label">每张目标体积</label><div className="input-unit"><input type="number" min="10" max="60000" value={targetKB} onChange={(event) => setTargetKB(Number(event.target.value))} /><span>KB</span></div></>}
+                  {activeTool === "resize" && <><label className="field-label">统一输出宽度</label><div className="input-unit"><input type="number" min="1" max="12000" value={resizeWidth} onChange={(event) => setResizeWidth(Number(event.target.value))} /><span>px</span></div><p className="helper info">每张图片独立保持原始宽高比，高度自动计算。</p></>}
+                  {outputFormat !== "png" && <><div className="range-heading"><label htmlFor="batch-quality">{activeTool === "compress" ? "最高画质" : "输出画质"}</label><span>{quality}%</span></div><input id="batch-quality" className="range" type="range" min="10" max="100" value={quality} onChange={(event) => setQuality(Number(event.target.value))} style={{ "--value": `${quality}%` } as React.CSSProperties} /></>}
+                  {activeTool === "compress" && <p className="helper">目标过小时会分别降低画质或分辨率，确保每张图片都真正变小。</p>}
+                  <div className="batch-privacy"><ShieldCheck size={17} /><span>图片与 ZIP 都在当前设备生成，不会上传服务器。</span></div>
+                  {error && <div className="error-banner compact" role="alert">{error}</div>}
+                </div>
+              </div>
+              <div className="sticky-action batch-actions">
+                <button className="primary-button" onClick={() => void processBatch()} disabled={processing}>{processing ? <><span className="spinner" />正在批量处理</> : <><WandSparkles size={18} />{batchDone ? "重新处理全部" : `开始处理 ${batchItems.length} 张`}</>}</button>
+                {batchDone > 0 && <button className="secondary-button" onClick={() => void downloadBatch()} disabled={processing}><Archive size={18} />下载 ZIP（{batchDone} 张）</button>}
+              </div>
+            </div>
           </div>
         </section>
       )}
