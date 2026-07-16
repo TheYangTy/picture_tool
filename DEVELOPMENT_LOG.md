@@ -355,3 +355,13 @@
 - 架构影响：该功能需要新增服务端 Provider Adapter、OAuth/密钥管理、链接白名单与 SSRF 防护、媒体下载代理、限流、临时缓存和版权确认；不能继续使用当前完全浏览器本地处理模式完成真实解析。
 - 阻塞项：需由用户确认是否接受“官方授权、仅本人或获授权内容”的产品范围；确认后再选择首批平台并申请对应开发者凭证。
 - 状态：等待用户确认范围。
+
+### 41. 调研同类本地项目并形成技术方案
+
+- 用户补充：只接受本地处理，要求先调研市面同类项目再确定方案。
+- 操作：调研 cobalt、yt-dlp、XHS-Downloader、DouK-Downloader、TikTokDownload/F2，以及浏览器 CORS、Chrome Native Messaging、Tauri sidecar 和本地网络访问约束。
+- 关键发现：同类项目能够实现多平台媒体提取，但可靠实现均需要本地可执行程序、本地 API、Docker 或浏览器扩展；普通网页无法稳定跨域读取平台页面、Cookie 和签名接口。
+- 推荐方案：保留现有在线 UI，新增 `Pixel Workshop Local Companion`；本地程序监听 loopback，使用 yt-dlp 处理 Instagram/X/TikTok，并为小红书、抖音建立独立 Adapter；媒体与 Cookie 不经过项目服务器。
+- 许可证发现：cobalt 为 AGPL-3.0，XHS-Downloader 和 DouK-Downloader 为 GPL-3.0，TikTokDownload/F2 为 MIT；正式复用前需按许可证选择隔离调用、独立实现或保留声明。
+- 文档：新增 `SOCIAL_MEDIA_LOCAL_IMPORT_RESEARCH.md`，记录竞品能力、三种本地方案、推荐架构、安全通信、产品流程和分阶段实施路线。
+- 状态：调研与方案完成，等待用户确认是否启动本地 Companion 原型。
