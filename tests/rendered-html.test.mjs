@@ -32,12 +32,33 @@ test("server-renders the Pixel Workshop product home", async () => {
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|react-loading-skeleton/i);
 });
 
+test("exposes a no-cache production health endpoint", async () => {
+  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+  workerUrl.searchParams.set("health-test", `${process.pid}-${Date.now()}`);
+  const { default: worker } = await import(workerUrl.href);
+  const response = await worker.fetch(
+    new Request("http://localhost/api/health"),
+    { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } },
+    { waitUntil() {}, passThroughOnException() {} },
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  const body = await response.json();
+  assert.equal(body.status, "ok");
+  assert.equal(body.service, "pixel-workshop");
+  assert.match(body.timestamp, /^\d{4}-\d{2}-\d{2}T/);
+});
+
 test("keeps production source and theme foundations in place", async () => {
-  const [page, layout, css, packageJson] = await Promise.all([
+  const [page, layout, css, packageJson, readme, deployment, dockerfile] = await Promise.all([
     readFile(new URL("app/page.tsx", root), "utf8"),
     readFile(new URL("app/layout.tsx", root), "utf8"),
     readFile(new URL("app/globals.css", root), "utf8"),
     readFile(new URL("package.json", root), "utf8"),
+    readFile(new URL("README.md", root), "utf8"),
+    readFile(new URL("DEPLOYMENT.md", root), "utf8"),
+    readFile(new URL("Dockerfile", root), "utf8"),
   ]);
 
   assert.match(page, /canvas\.toBlob/);
@@ -64,6 +85,13 @@ test("keeps production source and theme foundations in place", async () => {
   assert.match(css, /prefers-reduced-motion/);
   assert.match(packageJson, /"lucide-react"/);
   assert.match(packageJson, /node --test tests\/\*\.test\.mjs/);
+  assert.match(packageJson, /"name": "pixel-workshop"/);
+  assert.match(readme, /像素工坊/);
+  assert.match(readme, /DEPLOYMENT\.md/);
+  assert.match(deployment, /systemd/);
+  assert.match(deployment, /Docker Compose/);
+  assert.match(deployment, /\/api\/health/);
+  assert.match(dockerfile, /HEALTHCHECK/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   await assert.rejects(access(new URL("app/_sites-preview/SkeletonPreview.tsx", root)));
 });

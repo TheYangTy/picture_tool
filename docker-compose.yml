@@ -1,0 +1,21 @@
+services:
+  pixel-workshop:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pixel-workshop:latest
+    container_name: pixel-workshop
+    restart: unless-stopped
+    init: true
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    ports:
+      - "127.0.0.1:3000:3000"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777

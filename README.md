@@ -1,98 +1,96 @@
-# vinext-starter
+# 像素工坊（Pixel Workshop）
 
-A clean full-stack starter running on
-[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
-Drizzle support.
+移动端优先的在线图片处理工具。图片在浏览器本地完成转换、压缩、增容、尺寸调整和模板裁剪，无需上传服务器。
 
-## Prerequisites
+线上地址：[pixel-workshop.marcusyangty.chatgpt.site](https://pixel-workshop.marcusyangty.chatgpt.site)
 
-- Node.js `>=22.13.0`
+## 当前功能
 
-## Quick Start
+- JPG、PNG、WebP 相互转换；
+- 按目标 KB 压缩，必要时自动降低分辨率；
+- 使用合法图片格式块增大 JPG、PNG、WebP 文件体积；
+- 自定义宽高、比例锁定和百分比缩放；
+- 抖音、小红书、公众号、朋友圈、电商及证件照模板；
+- 一次处理最多 20 张图片并下载 ZIP；
+- 浅色/深色主题和移动端响应式界面；
+- `/api/health` 生产健康检查。
+
+## 隐私与限制
+
+- 当前图片处理全部发生在用户浏览器内，服务器不会接收图片文件；
+- 单张图片最大 30 MB，批量最多 20 张；
+- 当前稳定输出格式为 JPG、PNG、WebP；
+- HEIC、AVIF、GIF、TIFF、SVG、RAW、PSD、PDF 等格式仍在后续规划中；
+- 社交媒体链接本地解析功能只完成调研，尚未进入开发。
+
+## 本地开发
+
+要求 Node.js `>=22.13.0`。
 
 ```bash
-npm install
+git clone https://github.com/TheYangTy/picture_tool.git
+cd picture_tool
+npm ci
 npm run dev
-npm run build
 ```
 
-This starter does not use `wrangler.jsonc`.
+常用命令：
 
-## Included Shape
-
-- edit site code under `app/`
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
-
-## Workspace Auth Headers
-
-OpenAI workspace sites can read the current user's email from
-`oai-authenticated-user-email`.
-
-SIWC-authenticated workspace sites may also receive
-`oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty
-`name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by
-`oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
-
-Treat the full name as optional and fall back to email when it is absent:
-
-```tsx
-import { headers } from "next/headers";
-
-export default async function Home() {
-  const requestHeaders = await headers();
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
-
-  const displayName = fullName ?? email;
-  // ...
-}
+```bash
+npm run dev      # 开发服务器
+npm run build    # 生产构建
+npm test         # 生产构建 + 全部自动测试
+npm run lint     # ESLint 检查
+npm run start    # 启动已构建的生产服务
 ```
 
-## Optional Dispatch-Owned ChatGPT Sign-In
+## 服务器部署
 
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs
-optional or required ChatGPT sign-in:
+完整步骤见 [DEPLOYMENT.md](DEPLOYMENT.md)，包含：
 
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send
-  anonymous visitors through Sign in with ChatGPT.
-- Use `chatGPTSignInPath(returnTo)` and `chatGPTSignOutPath(returnTo)` for
-  browser links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in
-  or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because
-  they depend on per-request identity headers.
+- Ubuntu + Node.js + systemd + Nginx；
+- HTTPS/Certbot；
+- Docker Compose；
+- 健康检查、日志、更新、回滚与故障排查。
 
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the
-OAuth cookies, and identity header injection. Do not implement app routes for
-those reserved paths. Routes that do not import and call the helper remain
-anonymous-compatible.
+快速 Docker 启动：
 
-SIWC establishes identity only; it does not prove workspace membership. Use the
-Sites hosting platform's access policy controls for workspace-wide restrictions,
-or enforce explicit server-side membership or allowlist checks.
+```bash
+docker compose up -d --build
+curl http://127.0.0.1:3000/api/health
+```
 
-Use SIWC for account pages, user-specific dashboards, saved records, and write
-actions tied to the current ChatGPT user. Leave public content anonymous.
+容器端口只绑定到 `127.0.0.1:3000`，生产环境请通过 Nginx 或其他反向代理提供 HTTPS。
 
-## Useful Commands
+## 项目结构
 
-- `npm run dev`: start local development
-- `npm run build`: verify the vinext build output
-- `npm test`: build the starter and verify its rendered loading skeleton
-- `npm run db:generate`: generate Drizzle migrations after schema changes
+```text
+app/                  页面、图片处理核心和健康检查
+tests/                产品、增容和 ZIP 自动测试
+public/               图标与社交分享图片
+deployment/nginx/     Nginx 配置模板
+deployment/systemd/   systemd 服务模板
+prototypes/           移动端原型图
+PROJECT_ARCHITECTURE.md
+SOCIAL_MEDIA_LOCAL_IMPORT_RESEARCH.md
+DEVELOPMENT_LOG.md
+DEPLOYMENT.md
+```
 
-## Learn More
+## 文档
 
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+- [产品与技术架构](PROJECT_ARCHITECTURE.md)
+- [完整开发过程](DEVELOPMENT_LOG.md)
+- [社交媒体链接本地解析调研](SOCIAL_MEDIA_LOCAL_IMPORT_RESEARCH.md)
+- [服务器部署指南](DEPLOYMENT.md)
+
+## 技术栈
+
+- React 19、Next.js 16、TypeScript；
+- Vinext、Vite、Cloudflare Worker 兼容构建；
+- Canvas 浏览器本地图片处理；
+- 自研合法图片增容和 ZIP Store 编码模块。
+
+## 许可证
+
+当前仓库尚未声明开源许可证。除依赖项各自许可证允许的范围外，未经许可请勿复制、修改或再分发项目代码。正式开放社区贡献前应先确定许可证。

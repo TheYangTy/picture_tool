@@ -365,3 +365,17 @@
 - 许可证发现：cobalt 为 AGPL-3.0，XHS-Downloader 和 DouK-Downloader 为 GPL-3.0，TikTokDownload/F2 为 MIT；正式复用前需按许可证选择隔离调用、独立实现或保留声明。
 - 文档：新增 `SOCIAL_MEDIA_LOCAL_IMPORT_RESEARCH.md`，记录竞品能力、三种本地方案、推荐架构、安全通信、产品流程和分阶段实施路线。
 - 状态：调研与方案完成，等待用户确认是否启动本地 Companion 原型。
+
+### 42. 整理仓库并编写服务器部署文档
+
+- 用户指令：暂缓社交媒体链接解析开发；将调研保留在文档；编写可直接跟随操作的完整服务器部署文档，整理后推送到 `TheYangTy/picture_tool`。
+- GitHub 检查：本地仓库尚未配置 remote；GitHub CLI 已安装，但 `TheYangTy` 的现有认证 token 失效，推送前需要重新授权。
+- 运行验证：实际执行生产构建后的 `vinext start --hostname 127.0.0.1 --port 3180`，服务成功启动；访问首页返回 HTTP 200 并包含正式产品内容。
+- 仓库整理：将 npm 包名从脚手架名称更新为 `pixel-workshop`；重写产品 README；新增健康检查、Dockerfile、Docker Compose、systemd、Nginx 和 GitHub Actions CI 配置。
+- 部署文档：新增 `DEPLOYMENT.md`，覆盖 Ubuntu/Node/systemd/Nginx/HTTPS、防火墙、Docker、健康检查、日志、更新、回滚、备份、排障和上线检查清单。
+- 安全默认值：Node/容器端口只绑定本地回环地址；容器只读、删除 capabilities、禁止提权；systemd 使用独立非 root 用户；Nginx 提供基础安全响应头。
+- 测试：新增 `/api/health` 产品测试和部署文件验收断言；生产构建成功，9/9 自动测试通过，ESLint 0 error（保留 5 个本地 `blob:` 图片使用原生 `<img>` 的提示）。
+- 容器验证：`docker compose config` 通过；生产镜像构建成功；以只读文件系统、无 capabilities、禁止提权配置启动临时容器，健康接口返回 200，Docker 状态为 healthy，随后停止临时容器。
+- 依赖审计：生产依赖没有 high/critical，存在 2 个 Next.js 间接 PostCSS moderate 提示；npm 仅给出可能导致破坏性版本变化的 `--force` 方案，本轮记录风险而不执行强制修复。
+- GitHub 目标：只读检查确认 `TheYangTy/picture_tool` 仓库存在且当前为空；已将其设置为本地 `origin`。由于空仓库没有 base branch，本次应作为首次提交直接推送 `main`，不创建无意义的 Draft PR。
+- 状态：文档、配置与验证完成，等待恢复 GitHub 登录后推送。

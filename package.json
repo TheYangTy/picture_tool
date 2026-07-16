@@ -1,7 +1,13 @@
 {
-  "name": "site-creator-vinext-starter",
+  "name": "pixel-workshop",
   "version": "0.1.0",
+  "description": "移动端优先、浏览器本地处理的图片转换、压缩、增容、尺寸和模板工具",
   "private": true,
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TheYangTy/picture_tool.git"
+  },
   "engines": {
     "node": ">=22.13.0"
   },
