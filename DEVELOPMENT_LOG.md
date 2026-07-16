@@ -379,3 +379,11 @@
 - 依赖审计：生产依赖没有 high/critical，存在 2 个 Next.js 间接 PostCSS moderate 提示；npm 仅给出可能导致破坏性版本变化的 `--force` 方案，本轮记录风险而不执行强制修复。
 - GitHub 目标：只读检查确认 `TheYangTy/picture_tool` 仓库存在且当前为空；已将其设置为本地 `origin`。由于空仓库没有 base branch，本次应作为首次提交直接推送 `main`，不创建无意义的 Draft PR。
 - 状态：文档、配置与验证完成，等待恢复 GitHub 登录后推送。
+
+### 43. 首次推送到 GitHub
+
+- 操作：将 `https://github.com/TheYangTy/picture_tool.git` 设置为 `origin`；提交部署文档、生产配置、健康检查、CI 和 README 整理结果；首次推送完整项目历史到远程 `main`。
+- 认证结果：虽然 `gh auth status` 显示 GitHub CLI 的旧 token 已失效，但系统 Git 凭据仍可正常完成用户明确授权的 HTTPS push，因此无需阻塞发布或要求重新登录 CLI。
+- 远程验证：`origin/main` 创建成功；远程 main 与本地 HEAD 指向相同提交；工作区无未提交代码改动。
+- PR 决策：目标仓库推送前为空，没有可作为 base 的默认分支；本次按初始化仓库场景直接建立 `main`，未创建 Draft PR。
+- 状态：项目已成功推送到 `TheYangTy/picture_tool`，准备补推本条最终过程记录。
