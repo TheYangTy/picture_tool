@@ -44,6 +44,12 @@ test("keeps production source and theme foundations in place", async () => {
   assert.match(page, /type Step = "home" \| "editor" \| "templates" \| "result"/);
   assert.match(page, /localStorage\.setItem\("pixel-workshop-theme"/);
   assert.match(page, /targetKB/);
+  assert.match(page, /encodeAtBestQuality/);
+  assert.match(page, /Math\.sqrt\(target \/ blob\.size\)/);
+  assert.match(page, /抖音主页封面/);
+  assert.match(page, /小红书图文封面/);
+  assert.match(page, /公众号首条封面/);
+  assert.match(page, /公众号次条小图/);
   assert.match(page, /selectedPreset/);
   assert.match(layout, /lang="zh-CN"/);
   assert.match(css, /:root\[data-theme="dark"\]/);
