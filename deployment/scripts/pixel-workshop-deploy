@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+APP_USER="pixelworkshop"
+APP_GROUP="pixelworkshop"
+APP_ROOT="/opt/pixel-workshop"
+RELEASES_DIR="$APP_ROOT/releases"
+CURRENT_LINK="$APP_ROOT/current"
+SERVICE_NAME="pixel-workshop.service"
+SERVICE_FILE="/etc/systemd/system/$SERVICE_NAME"
+REPOSITORY="https://github.com/TheYangTy/picture_tool.git"
+HEALTH_URL="http://127.0.0.1:3000/api/health"
+RUNUSER="/usr/sbin/runuser"
+
+if [[ "${EUID}" -ne 0 ]]; then
+  echo "This deployment command must run as root." >&2
+  exit 1
+fi
+
+if [[ "$#" -ne 1 || ! "$1" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "Usage: pixel-workshop-deploy <40-character-git-sha>" >&2
+  exit 2
+fi
+
+sha="$1"
+short_sha="${sha:0:7}"
+release_dir="$RELEASES_DIR/$sha"
+staging_dir="$RELEASES_DIR/.incoming-$short_sha-$$"
+previous_release="$(readlink -f "$CURRENT_LINK" 2>/dev/null || true)"
+activated=0
+
+exec 9>"/run/lock/pixel-workshop-deploy.lock"
+if ! flock -n 9; then
+  echo "Another Pixel Workshop deployment is already running." >&2
+  exit 3
+fi
+
+cleanup() {
+  rm -rf -- "$staging_dir"
+}
+
+rollback() {
+  local exit_code="$?"
+  cleanup
+
+  if [[ "$exit_code" -ne 0 && "$activated" -eq 1 && -n "$previous_release" && -d "$previous_release" ]]; then
+    echo "Deployment failed; restoring $previous_release" >&2
+    ln -sfn "$previous_release" "$CURRENT_LINK"
+    chown -h "$APP_USER:$APP_GROUP" "$CURRENT_LINK"
+    install -o root -g root -m 0644 \
+      "$previous_release/deployment/systemd/pixel-workshop.service" \
+      "$SERVICE_FILE"
+    systemctl daemon-reload
+    systemctl restart "$SERVICE_NAME"
+  fi
+
+  exit "$exit_code"
+}
+trap rollback EXIT
+
+install -d -o "$APP_USER" -g "$APP_GROUP" -m 0755 "$RELEASES_DIR"
+
+if [[ ! -f "$release_dir/.deploy-ready" ]]; then
+  install -d -o "$APP_USER" -g "$APP_GROUP" -m 0755 "$staging_dir"
+  "$RUNUSER" -u "$APP_USER" -- git -C "$staging_dir" init --quiet
+  "$RUNUSER" -u "$APP_USER" -- git -C "$staging_dir" remote add origin "$REPOSITORY"
+  "$RUNUSER" -u "$APP_USER" -- git -C "$staging_dir" fetch --quiet --depth 1 origin "$sha"
+  "$RUNUSER" -u "$APP_USER" -- git -C "$staging_dir" checkout --quiet --detach FETCH_HEAD
+
+  actual_sha="$("$RUNUSER" -u "$APP_USER" -- git -C "$staging_dir" rev-parse HEAD)"
+  if [[ "$actual_sha" != "$sha" ]]; then
+    echo "Fetched commit $actual_sha does not match requested commit $sha." >&2
+    exit 4
+  fi
+
+  (
+    cd "$staging_dir"
+    "$RUNUSER" -u "$APP_USER" -- npm ci
+    "$RUNUSER" -u "$APP_USER" -- env PUBLIC_BASE_PATH=/pictool/ npm run build
+    "$RUNUSER" -u "$APP_USER" -- touch .deploy-ready
+  )
+
+  "$RUNUSER" -u "$APP_USER" -- mv "$staging_dir" "$release_dir"
+fi
+
+actual_sha="$("$RUNUSER" -u "$APP_USER" -- git -C "$release_dir" rev-parse HEAD)"
+if [[ "$actual_sha" != "$sha" ]]; then
+  echo "Existing release $release_dir contains unexpected commit $actual_sha." >&2
+  exit 5
+fi
+
+ln -sfn "$release_dir" "$CURRENT_LINK"
+chown -h "$APP_USER:$APP_GROUP" "$CURRENT_LINK"
+activated=1
+
+install -o root -g root -m 0644 \
+  "$release_dir/deployment/systemd/pixel-workshop.service" \
+  "$SERVICE_FILE"
+systemctl daemon-reload
+systemctl restart "$SERVICE_NAME"
+
+for attempt in {1..15}; do
+  if curl --fail --silent --show-error "$HEALTH_URL"; then
+    echo
+    echo "Pixel Workshop $sha is active."
+    activated=0
+    trap - EXIT
+    cleanup
+    exit 0
+  fi
+  sleep 1
+done
+
+echo "Health check did not pass after activating $sha." >&2
+exit 6

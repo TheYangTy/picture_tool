@@ -543,3 +543,19 @@
 - 最终公网验收：`https://yangtianyu.cloud/pictool/`、CSS、JavaScript、favicon、Open Graph 分享图和 `/pictool/api/health` 全部返回 200；HTML 不再包含冲突的根 `/assets/`、`/favicon.svg` 或 `/og.png` 引用，`/pictool` 无尾斜杠地址正确 301 跳转。
 - 隔离与回归：应用端口继续只监听 `127.0.0.1:3000`，公网由现有 HTTPS Nginx 提供；`https://yangtianyu.cloud/` 原主站保持 200，未改动其应用服务、证书和其他路由。服务器保留旧 release 与 Nginx 备份用于回滚。
 - 状态：腾讯云正式部署完成，公网地址为 `https://yangtianyu.cloud/pictool/`。
+
+### 53. 增加 GitHub Actions 自动部署
+
+- 用户指令：增加 GitHub Actions，让后续版本可以从 GitHub 自动部署到腾讯云正式站点。
+- 发布规范：按 GitHub 仓库发布流程检查本地分支、远程地址和工作区；当前位于 `main`，仅存在三个与本轮无关的旧原型未跟踪项，继续保持不纳入提交；为自动部署创建独立分支 `agent/github-actions-deploy`。
+- 权限检查：本机 GitHub CLI 已安装，但现有 `TheYangTy` 登录令牌失效；不读取或复用本地 Git 凭据，不把当前可登录 root 的 `codex_cloud` 私钥上传 GitHub，改用新的部署专用 Ed25519 密钥和低权限服务器账号。
+- Action 版本核对：检查 GitHub 官方 action 发布页后采用当前主版本 `actions/checkout@v7` 与 `actions/setup-node@v6`，工作流权限限制为只读仓库内容。
+- 工作流设计：推送 `main` 或手动触发时执行 Node.js 22 锁定依赖安装、`/pictool/` 生产构建、13 项自动测试和 lint；只有验证通过才进入 production 环境部署，并使用 concurrency 防止两个发布并发切换。
+- 服务器发布设计：新增 root 所有的受限发布命令，严格校验 40 位 Git SHA，以临时目录获取指定提交、安装依赖并构建，完成后原子切换 `current` 软链接、更新 systemd 并检查回环健康接口；切换后失败会自动恢复上一个 release。
+- 权限隔离设计：新增一次性 bootstrap 脚本，用于创建 `pixeldeploy` 低权限账号、写入带 `restrict` 选项的专用公钥，并只授权该账号通过 sudo 调用参数受校验的发布命令；应用仍由无登录权限的 `pixelworkshop` 用户运行。
+- 本地验证：workflow YAML 解析通过，两个 Bash 脚本通过语法检查，`git diff --check` 通过；使用 `/pictool/` 完成生产构建，13/13 自动测试通过，lint 以最多 5 条既有图片预览提示为门槛通过。
+- 专用凭据：生成新的 Ed25519 Actions 部署密钥，私钥仅暂存在本机受限 `/tmp` 文件中；通过已有可信 root SSH 会话核对服务器 Ed25519 主机指纹，扫描值与服务器本机值一致。
+- 服务器初始化：创建 `pixeldeploy` 低权限账号，公钥使用 `restrict` 选项，部署程序安装为 root 所有的 `0755` 文件，sudoers 以 `0440` 保存且 `visudo` 校验通过；验证该用户不能执行普通 `sudo true`，但可调用发布程序，非法 SHA 会在任何部署动作前以状态 2 拒绝。
+- 首次演练：通过新低权限通道部署当前稳定提交时，受限 sudo 环境因找不到非绝对路径的 `runuser` 而在源码获取前安全停止；未切换 `current`、未重启服务。发布脚本改为固定调用 `/usr/sbin/runuser`，避免依赖调用者 PATH，随后重新演练。
+- 真实部署演练：重新安装修正脚本后，通过 `pixeldeploy` 和专用密钥部署当前稳定提交 `d38a97e`；服务器成功完成指定 SHA 获取、锁定依赖安装、`/pictool/` 生产构建、完整 SHA release 创建、软链接切换、systemd 重启及健康检查，正式服务持续可用。
+- GitHub Secret 准备：生成并核对 `TENCENT_DEPLOY_SSH_KEY` 与 `TENCENT_SSH_KNOWN_HOSTS` 所需内容；尝试使用应用内浏览器进入仓库 Actions Secrets 设置时，当前浏览器会话未登录 GitHub，设置页返回未授权的 404。密钥尚未传输到 GitHub，临时私钥继续以 `0600` 保存在本机 `/tmp`，等待完成 GitHub 身份验证后写入并立即删除。

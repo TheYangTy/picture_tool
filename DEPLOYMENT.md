@@ -352,6 +352,91 @@ curl --fail http://127.0.0.1:3000/api/health
 
 确认后再决定是否让 Git 分支回到对应版本；不要在服务器上使用 `git reset --hard` 覆盖未确认的修改。
 
+### 5.3 GitHub Actions 自动部署到腾讯云
+
+仓库提供 `.github/workflows/deploy-tencent.yml`。合并到 `main` 后，每次推送会先执行构建、自动测试和 lint，全部通过后才部署到：
+
+```text
+https://yangtianyu.cloud/pictool/
+```
+
+工作流也支持在 GitHub Actions 页面通过 `workflow_dispatch` 手动触发。相同时间只允许一个 production 发布执行，后触发的任务会等待，避免两个版本同时切换。
+
+#### 第一次配置服务器
+
+在可信电脑生成一对只用于 GitHub Actions 的独立密钥。不要复用能够登录 root 的个人密钥：
+
+```bash
+ssh-keygen -t ed25519 \
+  -C "github-actions-picture-tool" \
+  -f ./picture-tool-actions \
+  -N ""
+```
+
+把公钥和仓库中的两个部署脚本上传到服务器，然后以 root 执行一次 bootstrap：
+
+```bash
+scp ./picture-tool-actions.pub root@43.134.53.23:/tmp/
+scp deployment/scripts/pixel-workshop-deploy \
+  deployment/scripts/bootstrap-github-actions-deploy \
+  root@43.134.53.23:/tmp/
+
+ssh root@43.134.53.23
+sudo mkdir -p /tmp/picture-tool-actions-bootstrap
+sudo cp /tmp/pixel-workshop-deploy \
+  /tmp/bootstrap-github-actions-deploy \
+  /tmp/picture-tool-actions.pub \
+  /tmp/picture-tool-actions-bootstrap/
+sudo chmod 755 /tmp/picture-tool-actions-bootstrap/pixel-workshop-deploy \
+  /tmp/picture-tool-actions-bootstrap/bootstrap-github-actions-deploy
+sudo /tmp/picture-tool-actions-bootstrap/bootstrap-github-actions-deploy \
+  /tmp/picture-tool-actions-bootstrap/picture-tool-actions.pub
+```
+
+bootstrap 会完成：
+
+- 创建低权限 `pixeldeploy` 用户；
+- 将公钥写入带 `restrict` 限制的 `authorized_keys`；
+- 将 root 所有的发布程序安装到 `/usr/local/sbin/pixel-workshop-deploy`；
+- 只允许 `pixeldeploy` 通过 sudo 调用该发布程序。
+
+#### 配置 GitHub Secrets
+
+在仓库 `Settings → Secrets and variables → Actions` 创建两个 Repository secret：
+
+| Secret | 内容 |
+|---|---|
+| `TENCENT_DEPLOY_SSH_KEY` | `picture-tool-actions` 私钥的完整内容 |
+| `TENCENT_SSH_KNOWN_HOSTS` | 已核对的服务器 SSH known_hosts 记录 |
+
+known_hosts 可以在可信电脑生成：
+
+```bash
+ssh-keyscan -H 43.134.53.23 > ./tencent-known-hosts
+ssh-keygen -lf ./tencent-known-hosts
+```
+
+设置 secret 前，应通过现有可信 SSH 会话或云控制台核对服务器主机密钥指纹，不能只信任网络扫描结果。使用已登录的 GitHub CLI 时可以执行：
+
+```bash
+gh secret set TENCENT_DEPLOY_SSH_KEY < ./picture-tool-actions
+gh secret set TENCENT_SSH_KNOWN_HOSTS < ./tencent-known-hosts
+```
+
+设置完成后立即安全删除电脑上的部署私钥副本；GitHub 只会在 production deploy job 中读取它。
+
+#### 自动发布与回滚行为
+
+服务器发布程序只接受完整的 40 位 Git commit SHA。它会：
+
+1. 获取 Actions 已验证的同一个提交；
+2. 在 `.incoming-*` 临时目录安装依赖并执行 `/pictool/` 生产构建；
+3. 构建成功后把目录变为正式 release；
+4. 原子切换 `/opt/pixel-workshop/current`，安装对应 systemd unit 并重启；
+5. 检查 `127.0.0.1:3000/api/health`；失败时自动恢复之前的 release。
+
+工作流最后还会从公网检查健康接口、首页关键内容和 `/pictool/assets/` 资源前缀。服务器不会开放 3000 端口，用户图片仍然只在浏览器本地处理。
+
 ## 6. 监控与日志
 
 ### 6.1 健康检查
