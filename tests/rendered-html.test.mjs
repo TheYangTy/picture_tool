@@ -83,6 +83,14 @@ test("keeps production source and theme foundations in place", async () => {
   assert.match(page, /小红书图文封面/);
   assert.match(page, /公众号首条封面/);
   assert.match(page, /公众号次条小图/);
+  assert.match(page, /Instagram 竖版帖子/);
+  assert.match(page, /X 主页横幅/);
+  assert.match(page, /YouTube 视频缩略图/);
+  assert.match(page, /正方形/);
+  assert.match(page, /常用比例/);
+  assert.match(page, /presetCategories/);
+  assert.match(page, /filteredPresets\.length === 0/);
+  assert.match(page, /\["compression", "templates"\]/);
   assert.match(page, /selectedPreset/);
   assert.match(page, /beginPreset/);
   assert.match(page, /className="image-stack"/);
@@ -94,6 +102,8 @@ test("keeps production source and theme foundations in place", async () => {
   assert.match(css, /prefers-reduced-transparency/);
   assert.match(css, /\.preset-shortcuts/);
   assert.match(css, /\.editor-workspace/);
+  assert.match(css, /\.template-summary/);
+  assert.match(css, /\.preset-empty/);
   assert.match(packageJson, /"lucide-react"/);
   assert.match(packageJson, /node --test tests\/\*\.test\.mjs/);
   assert.match(packageJson, /"name": "pixel-workshop"/);

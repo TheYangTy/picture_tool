@@ -80,6 +80,11 @@ const tools = [
 ];
 
 const presets: Preset[] = [
+  { id: "ratio-square", name: "正方形", category: "常用比例", width: 1080, height: 1080, ratio: "1:1", tone: "violet", note: "头像、方形帖子与商品图", verifiedAt: "2026-07-21" },
+  { id: "ratio-standard", name: "标准横图", category: "常用比例", width: 1440, height: 1080, ratio: "4:3", tone: "slate", note: "相机照片与演示配图", verifiedAt: "2026-07-21" },
+  { id: "ratio-wide", name: "横版宽屏", category: "常用比例", width: 1920, height: 1080, ratio: "16:9", tone: "blue", note: "视频封面与桌面背景", verifiedAt: "2026-07-21" },
+  { id: "ratio-portrait", name: "竖版图片", category: "常用比例", width: 1080, height: 1440, ratio: "3:4", tone: "pink", note: "移动端图文常用比例", verifiedAt: "2026-07-21" },
+  { id: "ratio-story", name: "手机全屏", category: "常用比例", width: 1080, height: 1920, ratio: "9:16", tone: "orange", note: "短视频、故事与手机壁纸", verifiedAt: "2026-07-21" },
   { id: "douyin-cover", name: "抖音主页封面", category: "抖音", width: 1080, height: 1440, ratio: "3:4", tone: "slate", note: "主页信息流常用可见比例", verifiedAt: "2026-07-17" },
   { id: "douyin-video", name: "抖音竖版视频", category: "抖音", width: 1080, height: 1920, ratio: "9:16", tone: "blue", note: "竖版视频与故事画布", verifiedAt: "2026-07-17" },
   { id: "xiaohongshu-note", name: "小红书图文封面", category: "小红书", width: 1080, height: 1440, ratio: "3:4", tone: "pink", note: "图文笔记推荐竖版比例", verifiedAt: "2026-07-17" },
@@ -87,12 +92,25 @@ const presets: Preset[] = [
   { id: "wechat-featured", name: "公众号首条封面", category: "微信", width: 900, height: 383, ratio: "2.35:1", tone: "green", note: "公众号首条大图封面", verifiedAt: "2026-07-17" },
   { id: "wechat-secondary", name: "公众号次条小图", category: "微信", width: 500, height: 500, ratio: "1:1", tone: "green", note: "次条消息方形封面", verifiedAt: "2026-07-17" },
   { id: "wechat-moments", name: "朋友圈主页封面", category: "微信", width: 1080, height: 1920, ratio: "9:16", tone: "green", note: "展开长图，主体放中部安全区", verifiedAt: "2026-07-17" },
+  { id: "wechat-video-channel", name: "视频号竖版封面", category: "微信", width: 1080, height: 1260, ratio: "6:7", tone: "green", note: "视频号主页竖版封面", verifiedAt: "2026-07-21" },
+  { id: "instagram-square", name: "Instagram 方形帖子", category: "Instagram", width: 1080, height: 1080, ratio: "1:1", tone: "violet", note: "个人主页与方形信息流", verifiedAt: "2026-07-21" },
+  { id: "instagram-portrait", name: "Instagram 竖版帖子", category: "Instagram", width: 1080, height: 1440, ratio: "3:4", tone: "pink", note: "官方支持范围内的竖版图文", verifiedAt: "2026-07-21" },
+  { id: "instagram-landscape", name: "Instagram 横版帖子", category: "Instagram", width: 1080, height: 566, ratio: "1.91:1", tone: "orange", note: "横向照片与信息流配图", verifiedAt: "2026-07-21" },
+  { id: "instagram-story", name: "Instagram Story", category: "Instagram", width: 1080, height: 1920, ratio: "9:16", tone: "violet", note: "Story 与 Reels 全屏画布", verifiedAt: "2026-07-21" },
+  { id: "x-profile", name: "X 头像", category: "X", width: 400, height: 400, ratio: "1:1", tone: "slate", note: "X 官方推荐头像尺寸", verifiedAt: "2026-07-21" },
+  { id: "x-header", name: "X 主页横幅", category: "X", width: 1500, height: 500, ratio: "3:1", tone: "slate", note: "边缘可能随设备裁剪，主体居中", verifiedAt: "2026-07-21" },
+  { id: "x-post", name: "X 横版配图", category: "X", width: 1600, height: 900, ratio: "16:9", tone: "blue", note: "帖子横向配图常用尺寸", verifiedAt: "2026-07-21" },
+  { id: "youtube-thumbnail", name: "YouTube 视频缩略图", category: "视频", width: 3840, height: 2160, ratio: "16:9", tone: "orange", note: "官方推荐高清 16:9 缩略图", verifiedAt: "2026-07-21" },
+  { id: "youtube-podcast", name: "YouTube 播客封面", category: "视频", width: 1280, height: 1280, ratio: "1:1", tone: "orange", note: "播客播放列表使用方形封面", verifiedAt: "2026-07-21" },
+  { id: "bilibili-cover", name: "哔哩哔哩视频封面", category: "视频", width: 1920, height: 1080, ratio: "16:9", tone: "blue", note: "横版视频封面通用画布", verifiedAt: "2026-07-21" },
   { id: "video", name: "通用视频封面", category: "通用", width: 1280, height: 720, ratio: "16:9", tone: "blue", note: "适合横版视频与播放器", verifiedAt: "2026-07-17" },
   { id: "social", name: "网页社交分享", category: "通用", width: 1200, height: 630, ratio: "1.91:1", tone: "violet", note: "适合链接预览与文章分享", verifiedAt: "2026-07-17" },
   { id: "square", name: "通用方形头像", category: "通用", width: 1080, height: 1080, ratio: "1:1", tone: "pink", note: "头像、方形帖子与商品图", verifiedAt: "2026-07-17" },
   { id: "shop", name: "电商主图", category: "电商", width: 800, height: 800, ratio: "1:1", tone: "orange", note: "通用方形商品主图", verifiedAt: "2026-07-17" },
   { id: "id-photo", name: "标准证件照", category: "证件照", width: 295, height: 413, ratio: "5:7", tone: "slate", note: "常用电子证件照比例", verifiedAt: "2026-07-17" },
 ];
+
+const presetCategories = ["常用比例", "抖音", "小红书", "微信", "Instagram", "X", "视频", "通用", "电商", "证件照", "全部"];
 
 const formatLabel: Record<OutputFormat, string> = { jpeg: "JPG", png: "PNG", webp: "WebP" };
 
@@ -133,7 +151,7 @@ export default function Home() {
   const [resizeHeight, setResizeHeight] = useState(800);
   const [ratioLocked, setRatioLocked] = useState(true);
   const [selectedPreset, setSelectedPreset] = useState(presets[0]);
-  const [category, setCategory] = useState("抖音");
+  const [category, setCategory] = useState("常用比例");
   const [search, setSearch] = useState("");
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
@@ -152,7 +170,7 @@ export default function Home() {
   }, [theme]);
 
   const filteredPresets = useMemo(
-    () => presets.filter((preset) => (category === "全部" || preset.category === category) && preset.name.includes(search.trim())),
+    () => presets.filter((preset) => (category === "全部" || preset.category === category) && `${preset.name}${preset.category}${preset.ratio}${preset.note}`.toLowerCase().includes(search.trim().toLowerCase())),
     [category, search],
   );
 
@@ -193,7 +211,8 @@ export default function Home() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (window.location.hostname !== "localhost" || params.get("qa") !== "compression") return;
+    const qaMode = params.get("qa");
+    if (window.location.hostname !== "localhost" || !["compression", "templates"].includes(qaMode ?? "")) return;
     const sample = document.createElement("canvas");
     sample.width = 1200;
     sample.height = 900;
@@ -209,8 +228,13 @@ export default function Home() {
       pixels.data[index + 3] = 255;
     }
     context.putImageData(pixels, 0, 0);
-    sample.toBlob((blob) => {
-      if (blob) handleFile(new File([blob], "qa-compression-sample.png", { type: "image/png" }));
+    sample.toBlob(async (blob) => {
+      if (!blob) return;
+      await handleFile(new File([blob], `qa-${qaMode}-sample.png`, { type: "image/png" }));
+      if (qaMode === "templates") {
+        setActiveTool("crop");
+        setStep("templates");
+      }
     }, "image/png");
     // Local-only deterministic QA entry; production hosts never execute it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -587,7 +611,7 @@ export default function Home() {
           <section className="home-presets" aria-labelledby="common-presets-heading">
             <div className="home-section-heading"><h2 id="common-presets-heading">常用尺寸</h2><span>选择后载入图片</span></div>
             <div className="preset-shortcuts">
-              {[presets[2], presets[1], presets[4]].map((preset) => (
+              {["xiaohongshu-note", "douyin-video", "wechat-featured"].map((id) => presets.find((preset) => preset.id === id)!).map((preset) => (
                 <button key={preset.id} onClick={() => beginPreset(preset)}>
                   <span className="shortcut-ratio" style={{ aspectRatio: `${preset.width}/${preset.height}` }} />
                   <span><strong>{preset.category === "微信" ? "公众号" : preset.category}</strong><small>{preset.ratio} · {preset.name.replace(preset.category, "").trim()}</small></span>
@@ -772,8 +796,9 @@ export default function Home() {
             <div className="template-panel">
               <div className="search-box"><Search size={18} /><input aria-label="搜索模板" placeholder="搜索尺寸名称" value={search} onChange={(event) => setSearch(event.target.value)} /></div>
               <div className="category-chips">
-                {["抖音", "小红书", "微信", "通用", "电商", "证件照", "全部"].map((item) => <button key={item} className={category === item ? "active" : ""} onClick={() => setCategory(item)}>{item}</button>)}
+                {presetCategories.map((item) => <button key={item} className={category === item ? "active" : ""} onClick={() => setCategory(item)}>{item}</button>)}
               </div>
+              <div className="template-summary"><span>{filteredPresets.length} 个模板</span><small>共 {presets.length} 个</small></div>
               <p className="template-disclaimer">平台可能按展示位置二次裁剪，请将文字和主体放在中央安全区。</p>
               <div className="preset-list">
                 {filteredPresets.map((preset) => (
@@ -783,6 +808,7 @@ export default function Home() {
                     <span className="radio">{selectedPreset.id === preset.id && <Check size={14} />}</span>
                   </button>
                 ))}
+                {filteredPresets.length === 0 && <div className="preset-empty"><Search size={20} /><strong>没有找到对应模板</strong><span>试试搜索平台、比例或尺寸名称</span></div>}
               </div>
               <div className="sticky-action"><button className="primary-button" onClick={applyPreset} disabled={processing}>{processing ? <><span className="spinner" />正在裁剪</> : <>应用此尺寸<ArrowRight size={19} /></>}</button></div>
             </div>
