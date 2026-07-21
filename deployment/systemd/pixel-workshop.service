@@ -10,6 +10,7 @@ Group=pixelworkshop
 WorkingDirectory=/opt/pixel-workshop/current
 Environment=NODE_ENV=production
 Environment=PORT=3000
+Environment=PUBLIC_BASE_PATH=/pictool/
 ExecStart=/usr/bin/npm run start -- --hostname 127.0.0.1 --port 3000
 Restart=on-failure
 RestartSec=5

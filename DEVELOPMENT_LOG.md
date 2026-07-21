@@ -536,3 +536,5 @@
 - 首次公网检查：`/pictool` 正确 301 到 `/pictool/`，页面、CSS、JavaScript 和 `/pictool/api/health` 均返回 200，根站仍返回 200；进一步检查发现框架字体预加载、favicon 和分享图仍使用根路径，可能与主站资源命名空间冲突。
 - 子路径完善：移除不受 Vite base 控制的 `next/font` 运行时字体资源，改用 Apple 系统字体栈；favicon 与 Open Graph/Twitter 分享图根据 `PUBLIC_BASE_PATH` 生成路径，并增加源码测试防止回归。
 - 修正验证：再次以 `/pictool/` 前缀完成生产构建，13/13 自动测试通过，ESLint 0 error，`git diff --check` 通过；准备发布修正 release 并执行最终公网验收。
+- 运行时复查：修正 release `70993f5` 在服务器完成依赖安装、13/13 测试与 lint 后切换上线；CSS/JavaScript、favicon 和分享图接口本身均返回 200，但 HTML 元数据仍显示根路径。确认原因是元数据由运行中的服务生成，而 systemd 未传入构建时使用的 `PUBLIC_BASE_PATH`。
+- 服务配置修正：在 systemd unit 中固定 `PUBLIC_BASE_PATH=/pictool/`，并增加自动测试约束，确保构建期资源与运行时元数据使用同一公网前缀。
