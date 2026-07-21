@@ -44,6 +44,8 @@ export default defineConfig(async () => {
   const { cloudflare } = await import("@cloudflare/vite-plugin");
 
   return {
+    // Tencent Cloud mounts the app below /pictool/. Root deployments keep "/".
+    base: process.env.PUBLIC_BASE_PATH || "/",
     server: isCodexSeatbeltSandbox
       ? { watch: { useFsEvents: false, usePolling: true } }
       : undefined,

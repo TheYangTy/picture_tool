@@ -58,7 +58,7 @@ test("exposes a no-cache production health endpoint", async () => {
 });
 
 test("keeps production source and theme foundations in place", async () => {
-  const [page, layout, css, packageJson, readme, deployment, dockerfile] = await Promise.all([
+  const [page, layout, css, packageJson, readme, deployment, dockerfile, viteConfig, subpathNginx] = await Promise.all([
     readFile(new URL("app/page.tsx", root), "utf8"),
     readFile(new URL("app/layout.tsx", root), "utf8"),
     readFile(new URL("app/globals.css", root), "utf8"),
@@ -66,6 +66,8 @@ test("keeps production source and theme foundations in place", async () => {
     readFile(new URL("README.md", root), "utf8"),
     readFile(new URL("DEPLOYMENT.md", root), "utf8"),
     readFile(new URL("Dockerfile", root), "utf8"),
+    readFile(new URL("vite.config.ts", root), "utf8"),
+    readFile(new URL("deployment/nginx/pixel-workshop-pictool.conf", root), "utf8"),
   ]);
 
   assert.match(page, /canvas\.toBlob/);
@@ -133,6 +135,11 @@ test("keeps production source and theme foundations in place", async () => {
   assert.match(deployment, /Docker Compose/);
   assert.match(deployment, /\/api\/health/);
   assert.match(dockerfile, /HEALTHCHECK/);
+  assert.match(viteConfig, /PUBLIC_BASE_PATH/);
+  assert.match(subpathNginx, /location = \/pictool/);
+  assert.match(subpathNginx, /location \^~ \/pictool\//);
+  assert.match(subpathNginx, /rewrite \^\/pictool\//);
+  assert.match(subpathNginx, /X-Forwarded-Prefix \/pictool/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   await assert.rejects(access(new URL("app/_sites-preview/SkeletonPreview.tsx", root)));
 });
