@@ -538,3 +538,8 @@
 - 修正验证：再次以 `/pictool/` 前缀完成生产构建，13/13 自动测试通过，ESLint 0 error，`git diff --check` 通过；准备发布修正 release 并执行最终公网验收。
 - 运行时复查：修正 release `70993f5` 在服务器完成依赖安装、13/13 测试与 lint 后切换上线；CSS/JavaScript、favicon 和分享图接口本身均返回 200，但 HTML 元数据仍显示根路径。确认原因是元数据由运行中的服务生成，而 systemd 未传入构建时使用的 `PUBLIC_BASE_PATH`。
 - 服务配置修正：在 systemd unit 中固定 `PUBLIC_BASE_PATH=/pictool/`，并增加自动测试约束，确保构建期资源与运行时元数据使用同一公网前缀。
+- 依赖审计：完整依赖审计报告包含开发工具链问题；进一步执行生产依赖审计后仅剩 Next.js 内部 PostCSS 的 2 项 moderate，官方自动修复建议会强制降级到不兼容的 Next.js 9，因此未执行破坏性 `npm audit fix --force`。当前生产依赖没有 high 或 critical 报告。
+- 最终 release：systemd 前缀修正提交为 `66dc085` 并推送到 GitHub `main`；服务器当前 release、Git HEAD 与 systemd unit 均对齐该提交，服务环境包含 `NODE_ENV=production`、`PORT=3000` 和 `PUBLIC_BASE_PATH=/pictool/`。
+- 最终公网验收：`https://yangtianyu.cloud/pictool/`、CSS、JavaScript、favicon、Open Graph 分享图和 `/pictool/api/health` 全部返回 200；HTML 不再包含冲突的根 `/assets/`、`/favicon.svg` 或 `/og.png` 引用，`/pictool` 无尾斜杠地址正确 301 跳转。
+- 隔离与回归：应用端口继续只监听 `127.0.0.1:3000`，公网由现有 HTTPS Nginx 提供；`https://yangtianyu.cloud/` 原主站保持 200，未改动其应用服务、证书和其他路由。服务器保留旧 release 与 Nginx 备份用于回滚。
+- 状态：腾讯云正式部署完成，公网地址为 `https://yangtianyu.cloud/pictool/`。
