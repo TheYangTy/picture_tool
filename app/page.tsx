@@ -14,6 +14,7 @@ import {
   LockKeyhole,
   Maximize2,
   Minimize2,
+  Move,
   Moon,
   RefreshCw,
   RotateCcw,
@@ -24,7 +25,8 @@ import {
   Trash2,
   WandSparkles,
 } from "lucide-react";
-import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, DragEvent, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent, useEffect, useMemo, useRef, useState } from "react";
+import { getCropSourceRect } from "./crop";
 import { padImageBlob } from "./image-padding";
 import { createZipBlob } from "./zip";
 
@@ -159,6 +161,11 @@ export default function Home() {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
   const [compare, setCompare] = useState(52);
+  const [cropZoom, setCropZoom] = useState(1);
+  const [cropPosition, setCropPosition] = useState({ x: 50, y: 50 });
+  const cropZoomRef = useRef(1);
+  const cropPointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const cropGestureRef = useRef<{ centerX: number; centerY: number; distance: number } | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem("pixel-workshop-theme");
@@ -204,6 +211,9 @@ export default function Home() {
       setResizeWidth(decoded.naturalWidth);
       setResizeHeight(decoded.naturalHeight);
       setScalePercent(100);
+      setCropZoom(1);
+      cropZoomRef.current = 1;
+      setCropPosition({ x: 50, y: 50 });
       const detectedFormat: OutputFormat = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpeg";
       setOutputFormat(activeTool === "compress" && detectedFormat === "png" ? "webp" : detectedFormat);
       setStep(activeTool === "crop" ? "templates" : "editor");
@@ -359,19 +369,7 @@ export default function Home() {
           context.fillRect(0, 0, width, height);
         }
         if (isPreset) {
-          const sourceRatio = source.width / source.height;
-          const targetRatio = width / height;
-          let sx = 0;
-          let sy = 0;
-          let sw = source.width;
-          let sh = source.height;
-          if (sourceRatio > targetRatio) {
-            sw = source.height * targetRatio;
-            sx = (source.width - sw) / 2;
-          } else {
-            sh = source.width / targetRatio;
-            sy = (source.height - sh) / 2;
-          }
+          const { sx, sy, sw, sh } = getCropSourceRect(source.width, source.height, width, height, cropZoom, cropPosition.x, cropPosition.y);
           context.drawImage(source, sx, sy, sw, sh, 0, 0, width, height);
         } else {
           context.drawImage(source, 0, 0, width, height);
@@ -578,6 +576,72 @@ export default function Home() {
     setError("");
   };
 
+  const resetCrop = () => {
+    cropZoomRef.current = 1;
+    setCropZoom(1);
+    setCropPosition({ x: 50, y: 50 });
+    cropPointersRef.current.clear();
+    cropGestureRef.current = null;
+  };
+
+  const setCropZoomSafe = (value: number) => {
+    const next = Math.min(4, Math.max(1, value));
+    cropZoomRef.current = next;
+    setCropZoom(next);
+  };
+
+  const getCropGesture = () => {
+    const points = [...cropPointersRef.current.values()];
+    if (!points.length) return null;
+    const centerX = points.reduce((sum, point) => sum + point.x, 0) / points.length;
+    const centerY = points.reduce((sum, point) => sum + point.y, 0) / points.length;
+    const distance = points.length > 1 ? Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y) : 0;
+    return { centerX, centerY, distance };
+  };
+
+  const handleCropPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    cropPointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    cropGestureRef.current = getCropGesture();
+  };
+
+  const handleCropPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!image || !cropPointersRef.current.has(event.pointerId)) return;
+    cropPointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    const nextGesture = getCropGesture();
+    const previous = cropGestureRef.current;
+    if (!nextGesture || !previous) return;
+
+    if (nextGesture.distance > 0 && previous.distance > 0) {
+      setCropZoomSafe(cropZoomRef.current * (nextGesture.distance / previous.distance));
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const sourceRatio = image.width / image.height;
+    const targetRatio = selectedPreset.width / selectedPreset.height;
+    const baseWidthPercent = sourceRatio > targetRatio ? sourceRatio / targetRatio * 100 : 100;
+    const baseHeightPercent = sourceRatio > targetRatio ? 100 : targetRatio / sourceRatio * 100;
+    const overflowX = rect.width * Math.max(0, baseWidthPercent * cropZoomRef.current / 100 - 1);
+    const overflowY = rect.height * Math.max(0, baseHeightPercent * cropZoomRef.current / 100 - 1);
+    const deltaX = nextGesture.centerX - previous.centerX;
+    const deltaY = nextGesture.centerY - previous.centerY;
+    setCropPosition((current) => ({
+      x: overflowX > 0 ? Math.min(100, Math.max(0, current.x - deltaX / overflowX * 100)) : 50,
+      y: overflowY > 0 ? Math.min(100, Math.max(0, current.y - deltaY / overflowY * 100)) : 50,
+    }));
+    cropGestureRef.current = nextGesture;
+  };
+
+  const handleCropPointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
+    cropPointersRef.current.delete(event.pointerId);
+    cropGestureRef.current = getCropGesture();
+  };
+
+  const handleCropWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setCropZoomSafe(cropZoomRef.current + (event.deltaY < 0 ? .1 : -.1));
+  };
+
   const beginTool = (tool: Tool) => {
     setActiveTool(tool);
     if (image) setStep(tool === "crop" ? "templates" : "editor");
@@ -585,6 +649,7 @@ export default function Home() {
   };
 
   const beginPreset = (preset: Preset) => {
+    resetCrop();
     setSelectedPreset(preset);
     setActiveTool("crop");
     if (image) setStep("templates");
@@ -600,6 +665,21 @@ export default function Home() {
   const growthPercent = image && result ? Math.max(0, Math.round((result.blob.size / image.file.size - 1) * 100)) : 0;
   const batchDone = batchItems.filter((item) => item.status === "done").length;
   const batchFailed = batchItems.filter((item) => item.status === "error").length;
+  const cropPreviewStyle = useMemo(() => {
+    if (!image) return {};
+    const sourceRatio = image.width / image.height;
+    const targetRatio = selectedPreset.width / selectedPreset.height;
+    const baseWidthPercent = sourceRatio > targetRatio ? sourceRatio / targetRatio * 100 : 100;
+    const baseHeightPercent = sourceRatio > targetRatio ? 100 : targetRatio / sourceRatio * 100;
+    const width = baseWidthPercent * cropZoom;
+    const height = baseHeightPercent * cropZoom;
+    return {
+      width: `${width}%`,
+      height: `${height}%`,
+      left: `${-(width - 100) * cropPosition.x / 100}%`,
+      top: `${-(height - 100) * cropPosition.y / 100}%`,
+    };
+  }, [cropPosition.x, cropPosition.y, cropZoom, image, selectedPreset.height, selectedPreset.width]);
 
   return (
     <main className="site-shell">
@@ -830,12 +910,29 @@ export default function Home() {
           </div>
           <div className="template-layout">
             <div className="crop-preview-panel">
-              <div className="crop-stage" style={{ aspectRatio: `${selectedPreset.width}/${selectedPreset.height}` }}>
-                <img src={image.url} alt="模板裁剪预览" />
-                <div className="safe-area"><span>安全区</span></div>
+              <div
+                className="crop-stage"
+                style={{ aspectRatio: `${selectedPreset.width}/${selectedPreset.height}` }}
+                role="application"
+                aria-label="可拖动的模板裁剪预览"
+                onPointerDown={handleCropPointerDown}
+                onPointerMove={handleCropPointerMove}
+                onPointerUp={handleCropPointerEnd}
+                onPointerCancel={handleCropPointerEnd}
+                onWheel={handleCropWheel}
+              >
+                <img src={image.url} alt="模板裁剪预览" draggable="false" style={cropPreviewStyle} />
+                <div className="safe-area"><span><Move size={16} />拖动图片调整位置</span></div>
                 <span className="ratio-badge">{selectedPreset.ratio}</span>
               </div>
-              <div className="crop-caption"><div><strong>{selectedPreset.name}</strong><span>{selectedPreset.width} × {selectedPreset.height}</span></div><button><RotateCcw size={16} />重置位置</button></div>
+              <div className="crop-zoom-control">
+                <button aria-label="缩小图片" onClick={() => setCropZoomSafe(cropZoomRef.current - .1)} disabled={cropZoom <= 1}><Minimize2 size={16} /></button>
+                <input aria-label="裁剪缩放" type="range" min="100" max="400" step="1" value={Math.round(cropZoom * 100)} onChange={(event) => setCropZoomSafe(Number(event.target.value) / 100)} style={{ "--value": `${(cropZoom - 1) / 3 * 100}%` } as React.CSSProperties} />
+                <button aria-label="放大图片" onClick={() => setCropZoomSafe(cropZoomRef.current + .1)} disabled={cropZoom >= 4}><Maximize2 size={16} /></button>
+                <span>{Math.round(cropZoom * 100)}%</span>
+              </div>
+              <p className="crop-gesture-hint">拖动图片移动主体 · 双指或滚轮缩放 · 虚线框是安全区</p>
+              <div className="crop-caption"><div><strong>{selectedPreset.name}</strong><span>{selectedPreset.width} × {selectedPreset.height}</span></div><button onClick={resetCrop}><RotateCcw size={16} />复位</button></div>
             </div>
             <div className="template-panel">
               <div className="search-box"><Search size={18} /><input aria-label="搜索模板" placeholder="搜索尺寸名称" value={search} onChange={(event) => setSearch(event.target.value)} /></div>
@@ -846,7 +943,7 @@ export default function Home() {
               <p className="template-disclaimer">平台可能按展示位置二次裁剪，请将文字和主体放在中央安全区。</p>
               <div className="preset-list">
                 {filteredPresets.map((preset) => (
-                  <button className={`preset-card ${selectedPreset.id === preset.id ? "selected" : ""}`} key={preset.id} onClick={() => setSelectedPreset(preset)}>
+                  <button className={`preset-card ${selectedPreset.id === preset.id ? "selected" : ""}`} key={preset.id} onClick={() => { resetCrop(); setSelectedPreset(preset); }}>
                     <span className={`preset-thumb ${preset.tone}`}><ImageIcon size={22} /></span>
                     <span><strong>{preset.name}</strong><small>{preset.width} × {preset.height} · {preset.ratio}</small><em>{preset.note}</em></span>
                     <span className="radio">{selectedPreset.id === preset.id && <Check size={14} />}</span>

@@ -103,6 +103,12 @@ test("keeps production source and theme foundations in place", async () => {
   assert.match(page, /aria-label="自由宽度"/);
   assert.match(page, /aria-label="自由高度"/);
   assert.match(page, /applyScalePercent/);
+  assert.match(page, /getCropSourceRect/);
+  assert.match(page, /handleCropPointerDown/);
+  assert.match(page, /handleCropPointerMove/);
+  assert.match(page, /handleCropWheel/);
+  assert.match(page, /aria-label="裁剪缩放"/);
+  assert.match(page, /双指或滚轮缩放/);
   assert.match(layout, /lang="zh-CN"/);
   assert.match(css, /:root\[data-theme="dark"\]/);
   assert.match(css, /@media \(max-width: 480px\)/);
@@ -115,6 +121,9 @@ test("keeps production source and theme foundations in place", async () => {
   assert.match(css, /\.home-tool-grid/);
   assert.match(css, /\.scale-options/);
   assert.match(css, /\.resize-output-preview/);
+  assert.match(css, /touch-action: none/);
+  assert.match(css, /\.crop-zoom-control/);
+  assert.match(css, /\.crop-gesture-hint/);
   assert.match(packageJson, /"lucide-react"/);
   assert.match(packageJson, /node --test tests\/\*\.test\.mjs/);
   assert.match(packageJson, /"name": "pixel-workshop"/);
