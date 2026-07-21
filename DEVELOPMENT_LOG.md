@@ -528,3 +528,11 @@
 - 本地验证：使用 `PUBLIC_BASE_PATH=/pictool/` 完成生产构建，13/13 自动测试通过，ESLint 0 error；生产首页生成的 CSS/JavaScript 地址均以 `/pictool/assets/` 开头。
 - 代理验证：临时启动生产服务后，根页面与 `/api/health` 返回 200；模拟 Nginx 去掉 `/pictool` 前缀后，对应 CSS 和 JavaScript 资源均返回 200 且带长期不可变缓存头，临时服务随后停止。
 - 状态：子路径构建已验证，准备提交源码并在腾讯云创建独立用户、release 与服务。
+- 源码发布：子路径构建配置、Nginx 示例和对应测试提交为 `bece971`，并已推送到 GitHub `main`，确保服务器部署来源可追溯。
+- 远端准备：创建无登录权限的 `pixelworkshop` 系统用户和 `/opt/pixel-workshop/releases` 发布目录，将 `bece971` 克隆为独立 release；首次使用 root 身份读取该仓库状态时触发 Git 所有权保护，仅影响状态检查，未修改全局 Git 安全配置，后续统一以应用用户执行仓库与构建操作。
+- 服务器验证：以 `pixelworkshop` 用户安装锁定依赖并使用 `PUBLIC_BASE_PATH=/pictool/` 构建；13/13 自动测试全部通过，ESLint 0 error，保留 5 条本地 Blob 图片预览使用原生 `<img>` 的预期性能提示。
+- 服务启动：将 `bece971` 指向 `/opt/pixel-workshop/current`，安装并启用 `pixel-workshop.service`；服务状态为 active，`/api/health` 返回正常，监听地址确认仅为 `127.0.0.1:3000`。
+- Nginx 切换：下载现有站点配置并只替换原失效的 `/pictool` 区块；服务器保留 `backup-bece971` 备份，`nginx -t` 通过后完成平滑重载，未覆盖主站或其他 dashboard 路由。
+- 首次公网检查：`/pictool` 正确 301 到 `/pictool/`，页面、CSS、JavaScript 和 `/pictool/api/health` 均返回 200，根站仍返回 200；进一步检查发现框架字体预加载、favicon 和分享图仍使用根路径，可能与主站资源命名空间冲突。
+- 子路径完善：移除不受 Vite base 控制的 `next/font` 运行时字体资源，改用 Apple 系统字体栈；favicon 与 Open Graph/Twitter 分享图根据 `PUBLIC_BASE_PATH` 生成路径，并增加源码测试防止回归。
+- 修正验证：再次以 `/pictool/` 前缀完成生产构建，13/13 自动测试通过，ESLint 0 error，`git diff --check` 通过；准备发布修正 release 并执行最终公网验收。

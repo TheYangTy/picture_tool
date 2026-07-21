@@ -112,6 +112,9 @@ test("keeps production source and theme foundations in place", async () => {
   assert.match(page, /aria-label="裁剪缩放"/);
   assert.match(page, /双指或滚轮缩放/);
   assert.match(layout, /lang="zh-CN"/);
+  assert.match(layout, /PUBLIC_BASE_PATH/);
+  assert.match(layout, /assetBasePath/);
+  assert.doesNotMatch(layout, /next\/font/);
   assert.match(css, /:root\[data-theme="dark"\]/);
   assert.match(css, /@media \(max-width: 480px\)/);
   assert.match(css, /prefers-reduced-motion/);
@@ -126,6 +129,7 @@ test("keeps production source and theme foundations in place", async () => {
   assert.match(css, /touch-action: none/);
   assert.match(css, /\.crop-zoom-control/);
   assert.match(css, /\.crop-gesture-hint/);
+  assert.match(css, /-apple-system/);
   assert.match(packageJson, /"lucide-react"/);
   assert.match(packageJson, /node --test tests\/\*\.test\.mjs/);
   assert.match(packageJson, /"name": "pixel-workshop"/);
