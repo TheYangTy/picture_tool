@@ -559,3 +559,6 @@
 - 首次演练：通过新低权限通道部署当前稳定提交时，受限 sudo 环境因找不到非绝对路径的 `runuser` 而在源码获取前安全停止；未切换 `current`、未重启服务。发布脚本改为固定调用 `/usr/sbin/runuser`，避免依赖调用者 PATH，随后重新演练。
 - 真实部署演练：重新安装修正脚本后，通过 `pixeldeploy` 和专用密钥部署当前稳定提交 `d38a97e`；服务器成功完成指定 SHA 获取、锁定依赖安装、`/pictool/` 生产构建、完整 SHA release 创建、软链接切换、systemd 重启及健康检查，正式服务持续可用。
 - GitHub Secret 准备：生成并核对 `TENCENT_DEPLOY_SSH_KEY` 与 `TENCENT_SSH_KNOWN_HOSTS` 所需内容；尝试使用应用内浏览器进入仓库 Actions Secrets 设置时，当前浏览器会话未登录 GitHub，设置页返回未授权的 404。密钥尚未传输到 GitHub，临时私钥继续以 `0600` 保存在本机 `/tmp`，等待完成 GitHub 身份验证后写入并立即删除。
+- GitHub 身份恢复：用户完成 GitHub 登录后，仓库 Actions Secrets 设置页可正常访问；确认目标为 `TheYangTy/picture_tool`，仓库此前没有 Repository secrets。
+- 密钥安全轮换：首次填写 Secret 时，旧私钥虽然由 GitHub 页面完成加密保存，但内容意外进入自动化调试输出；立即停止继续使用该密钥，退出表单、生成第二把独立 Ed25519 密钥，并通过可信 root 通道覆盖服务器 `pixeldeploy` 授权。验证旧密钥 SSH 返回 255、新密钥成功以 UID 1002 登录，随后删除本机旧私钥、公钥及测试输出。
+- Secrets 配置：将 GitHub 中已创建的 `TENCENT_DEPLOY_SSH_KEY` 更新为第二把新私钥，并新增已核对主机指纹的 `TENCENT_SSH_KNOWN_HOSTS`；返回 Secrets 列表确认两个名称各存在一项，页面不会显示 Secret 明文。
