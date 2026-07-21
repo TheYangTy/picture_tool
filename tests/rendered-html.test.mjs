@@ -58,7 +58,7 @@ test("exposes a no-cache production health endpoint", async () => {
 });
 
 test("keeps production source and theme foundations in place", async () => {
-  const [page, layout, css, packageJson, readme, deployment, dockerfile, viteConfig, subpathNginx, systemdUnit] = await Promise.all([
+  const [page, layout, css, packageJson, readme, deployment, dockerfile, viteConfig, subpathNginx, systemdUnit, deployWorkflow, deployScript, bootstrapScript] = await Promise.all([
     readFile(new URL("app/page.tsx", root), "utf8"),
     readFile(new URL("app/layout.tsx", root), "utf8"),
     readFile(new URL("app/globals.css", root), "utf8"),
@@ -69,6 +69,9 @@ test("keeps production source and theme foundations in place", async () => {
     readFile(new URL("vite.config.ts", root), "utf8"),
     readFile(new URL("deployment/nginx/pixel-workshop-pictool.conf", root), "utf8"),
     readFile(new URL("deployment/systemd/pixel-workshop.service", root), "utf8"),
+    readFile(new URL(".github/workflows/deploy-tencent.yml", root), "utf8"),
+    readFile(new URL("deployment/scripts/pixel-workshop-deploy", root), "utf8"),
+    readFile(new URL("deployment/scripts/bootstrap-github-actions-deploy", root), "utf8"),
   ]);
 
   assert.match(page, /canvas\.toBlob/);
@@ -146,6 +149,17 @@ test("keeps production source and theme foundations in place", async () => {
   assert.match(subpathNginx, /rewrite \^\/pictool\//);
   assert.match(subpathNginx, /X-Forwarded-Prefix \/pictool/);
   assert.match(systemdUnit, /Environment=PUBLIC_BASE_PATH=\/pictool\//);
+  assert.match(deployWorkflow, /branches: \[main\]/);
+  assert.match(deployWorkflow, /TENCENT_DEPLOY_SSH_KEY/);
+  assert.match(deployWorkflow, /TENCENT_SSH_KNOWN_HOSTS/);
+  assert.match(deployWorkflow, /pixel-workshop-deploy '\$GITHUB_SHA'/);
+  assert.match(deployWorkflow, /cancel-in-progress: false/);
+  assert.match(deployScript, /flock -n/);
+  assert.match(deployScript, /\.incoming-/);
+  assert.match(deployScript, /Deployment failed; restoring/);
+  assert.match(deployScript, /PUBLIC_BASE_PATH=\/pictool\//);
+  assert.match(bootstrapScript, /restrict %s/);
+  assert.match(bootstrapScript, /NOPASSWD: \/usr\/local\/sbin\/pixel-workshop-deploy/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   await assert.rejects(access(new URL("app/_sites-preview/SkeletonPreview.tsx", root)));
 });

@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+DEPLOY_USER="pixeldeploy"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+DEPLOY_COMMAND="$SCRIPT_DIR/pixel-workshop-deploy"
+AUTHORIZED_KEYS="/home/$DEPLOY_USER/.ssh/authorized_keys"
+SUDOERS_FILE="/etc/sudoers.d/pixel-workshop-deploy"
+
+if [[ "${EUID}" -ne 0 ]]; then
+  echo "Run this bootstrap command as root." >&2
+  exit 1
+fi
+
+if [[ "$#" -ne 1 || ! -f "$1" ]]; then
+  echo "Usage: bootstrap-github-actions-deploy <deploy-public-key-file>" >&2
+  exit 2
+fi
+
+public_key="$(<"$1")"
+if [[ ! "$public_key" =~ ^ssh-ed25519[[:space:]]+[A-Za-z0-9+/=]+([[:space:]].*)?$ ]]; then
+  echo "The supplied file must contain one Ed25519 SSH public key." >&2
+  exit 3
+fi
+
+if ! id "$DEPLOY_USER" >/dev/null 2>&1; then
+  useradd --create-home --shell /bin/bash "$DEPLOY_USER"
+fi
+passwd --lock "$DEPLOY_USER" >/dev/null 2>&1 || true
+
+install -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 0700 "/home/$DEPLOY_USER/.ssh"
+printf 'restrict %s\n' "$public_key" > "$AUTHORIZED_KEYS"
+chown "$DEPLOY_USER:$DEPLOY_USER" "$AUTHORIZED_KEYS"
+chmod 0600 "$AUTHORIZED_KEYS"
+
+install -o root -g root -m 0755 "$DEPLOY_COMMAND" /usr/local/sbin/pixel-workshop-deploy
+
+printf '%s\n' \
+  "$DEPLOY_USER ALL=(root) NOPASSWD: /usr/local/sbin/pixel-workshop-deploy *" \
+  > "$SUDOERS_FILE"
+chmod 0440 "$SUDOERS_FILE"
+visudo -cf "$SUDOERS_FILE"
+
+echo "GitHub Actions deploy user is ready."

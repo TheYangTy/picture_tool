@@ -1,0 +1,86 @@
+name: Deploy to Tencent Cloud
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pixel-workshop-production
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "22"
+  PUBLIC_BASE_PATH: /pictool/
+  DEPLOY_HOST: 43.134.53.23
+  DEPLOY_USER: pixeldeploy
+  PUBLIC_URL: https://yangtianyu.cloud/pictool/
+
+jobs:
+  verify:
+    name: Build and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the exact commit
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Build and run tests
+        run: npm test
+
+      - name: Lint
+        run: npm run lint -- --max-warnings=5
+
+  deploy:
+    name: Deploy production release
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: ${{ env.PUBLIC_URL }}
+    steps:
+      - name: Configure restricted SSH credentials
+        env:
+          DEPLOY_KEY: ${{ secrets.TENCENT_DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.TENCENT_SSH_KNOWN_HOSTS }}
+        run: |
+          test -n "$DEPLOY_KEY"
+          test -n "$KNOWN_HOSTS"
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_KEY" > "$HOME/.ssh/tencent_deploy"
+          printf '%s\n' "$KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/tencent_deploy" "$HOME/.ssh/known_hosts"
+
+      - name: Activate release on Tencent Cloud
+        run: |
+          ssh \
+            -i "$HOME/.ssh/tencent_deploy" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "sudo /usr/local/sbin/pixel-workshop-deploy '$GITHUB_SHA'"
+
+      - name: Verify public deployment
+        run: |
+          curl --fail --silent --show-error \
+            --retry 8 --retry-all-errors --retry-delay 3 \
+            "${PUBLIC_URL}api/health"
+          html="$(curl --fail --silent --show-error \
+            --retry 5 --retry-all-errors --retry-delay 2 \
+            "$PUBLIC_URL")"
+          grep -Fq '轻松处理图片' <<< "$html"
+          grep -Fq '/pictool/assets/' <<< "$html"
