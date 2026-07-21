@@ -11,6 +11,8 @@ const eslintConfig = defineConfig([
     ".next/**",
     "out/**",
     "build/**",
+    // Independently built and deployed UI prototype; linted in its own project.
+    "prototypes/apple-design-live/**",
     "next-env.d.ts",
   ]),
 ]);

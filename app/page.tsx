@@ -13,20 +13,16 @@ import {
   Images,
   LockKeyhole,
   Maximize2,
-  Menu,
   Minimize2,
   Moon,
   RefreshCw,
   RotateCcw,
   Search,
   ShieldCheck,
-  SlidersHorizontal,
   Sparkles,
   Sun,
   Trash2,
-  Upload,
   WandSparkles,
-  X,
 } from "lucide-react";
 import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import { padImageBlob } from "./image-padding";
@@ -142,7 +138,6 @@ export default function Home() {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
   const [compare, setCompare] = useState(52);
-  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem("pixel-workshop-theme");
@@ -531,7 +526,6 @@ export default function Home() {
 
   const reset = () => {
     setStep("home");
-    setMenuOpen(false);
     setError("");
   };
 
@@ -539,6 +533,13 @@ export default function Home() {
     setActiveTool(tool);
     if (image) setStep(tool === "crop" ? "templates" : "editor");
     else openPicker(tool);
+  };
+
+  const beginPreset = (preset: Preset) => {
+    setSelectedPreset(preset);
+    setActiveTool("crop");
+    if (image) setStep("templates");
+    else openPicker("crop");
   };
 
   const applyPreset = () => {
@@ -559,64 +560,48 @@ export default function Home() {
           <span className="brand-mark"><Sparkles size={18} strokeWidth={2.5} /></span>
           <span>像素工坊</span>
         </button>
-        <nav className="desktop-nav" aria-label="主要导航">
-          <button onClick={() => beginTool("convert")}>格式转换</button>
-          <button onClick={() => beginTool("compress")}>文件体积</button>
-          <button onClick={() => beginTool("resize")}>调整尺寸</button>
-          <button onClick={() => beginTool("crop")}>封面模板</button>
-        </nav>
-        <div className="top-actions">
-          <button className="icon-button" onClick={() => setTheme(theme === "light" ? "dark" : "light")} aria-label={theme === "light" ? "切换到深色模式" : "切换到浅色模式"}>
-            {theme === "light" ? <Moon size={20} /> : <Sun size={20} />}
-          </button>
-          <button className="icon-button mobile-menu" onClick={() => setMenuOpen(!menuOpen)} aria-label="打开菜单">
-            {menuOpen ? <X size={21} /> : <Menu size={21} />}
-          </button>
-        </div>
-        {menuOpen && (
-          <div className="mobile-popover">
-            {tools.map((tool) => <button key={tool.id} onClick={() => { beginTool(tool.id); setMenuOpen(false); }}>{tool.name}<ArrowRight size={16} /></button>)}
-          </div>
-        )}
+        <button className="icon-button" onClick={() => setTheme(theme === "light" ? "dark" : "light")} aria-label={theme === "light" ? "切换到深色模式" : "切换到浅色模式"}>
+          {theme === "light" ? <Moon size={19} /> : <Sun size={19} />}
+        </button>
       </header>
 
       {step === "home" && (
         <section className="home-view page-enter">
           <div className="hero-copy">
-            <span className="eyebrow"><WandSparkles size={15} /> 免费、快速、无需上传</span>
-            <h1>图片处理，<span>一步完成</span></h1>
-            <p>转换格式、压缩或增大体积、修改尺寸。所有常用工具，都在一个清爽的工作台里。</p>
+            <h1>轻松处理图片</h1>
+            <p>选择图片，马上开始。</p>
           </div>
 
-          <div className="upload-layout">
-            <div className="upload-card" onDragOver={(event) => event.preventDefault()} onDrop={handleDrop}>
-              <div className="upload-icon"><Upload size={30} /></div>
-              <div>
-                <h2>选择图片或拖到这里</h2>
-                <p>支持单张处理，或一次选择最多 20 张</p>
-              </div>
-              <button className="primary-button" onClick={() => openPicker()}><ImageIcon size={19} />选择图片</button>
-              <span className="upload-limit">每张最大 30 MB · 批量结果可打包下载 · 图片仅在当前设备处理</span>
+          <div className="upload-card" onDragOver={(event) => event.preventDefault()} onDrop={handleDrop}>
+            <div className="image-stack" aria-hidden="true">
+              <span className="mock-image back" />
+              <span className="mock-image front" />
             </div>
-
-            <div className="feature-grid">
-              {tools.map(({ id, name, detail, icon: Icon, color }) => (
-                <button className="feature-card" key={id} onClick={() => beginTool(id)}>
-                  <span className={`feature-icon ${color}`}><Icon size={21} /></span>
-                  <span><strong>{name}</strong><small>{detail}</small></span>
-                  <ArrowRight className="feature-arrow" size={17} />
-                </button>
-              ))}
-            </div>
+            <h2>从一张图片开始</h2>
+            <button className="primary-button" onClick={() => openPicker()}><ImageIcon size={18} />选择图片</button>
+            <span className="upload-limit">JPG、PNG、WebP · 每张最大 30 MB · 最多 20 张</span>
           </div>
 
           {error && <div className="error-banner" role="alert">{error}</div>}
 
-          <div className="trust-row">
-            <span><ShieldCheck size={17} />本地处理，保护隐私</span>
-            <span><SlidersHorizontal size={17} />画质与体积精细控制</span>
-            <span><Sparkles size={17} />无需注册即可下载</span>
+          <section className="home-presets" aria-labelledby="common-presets-heading">
+            <div className="home-section-heading"><h2 id="common-presets-heading">常用尺寸</h2><span>选择后载入图片</span></div>
+            <div className="preset-shortcuts">
+              {[presets[2], presets[1], presets[4]].map((preset) => (
+                <button key={preset.id} onClick={() => beginPreset(preset)}>
+                  <span className="shortcut-ratio" style={{ aspectRatio: `${preset.width}/${preset.height}` }} />
+                  <span><strong>{preset.category === "微信" ? "公众号" : preset.category}</strong><small>{preset.ratio} · {preset.name.replace(preset.category, "").trim()}</small></span>
+                  <ArrowRight size={15} />
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <div className="home-tool-strip" aria-label="图片工具">
+            {tools.map(({ id, name, icon: Icon }) => <button key={id} onClick={() => beginTool(id)}><Icon size={16} />{name}</button>)}
           </div>
+
+          <div className="home-privacy"><ShieldCheck size={15} /><span>图片不会上传，关闭页面后不留痕迹</span></div>
         </section>
       )}
 
@@ -684,7 +669,7 @@ export default function Home() {
       )}
 
       {step === "editor" && image && (
-        <section className="workspace page-enter">
+        <section className="workspace editor-workspace page-enter">
           <div className="workspace-heading">
             <button className="back-button" onClick={reset}><ArrowLeft size={19} />返回</button>
             <div><h1>{image.file.name}</h1><p>{image.width}×{image.height} · {formatBytes(image.file.size)}</p></div>

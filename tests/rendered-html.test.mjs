@@ -23,12 +23,17 @@ test("server-renders the Pixel Workshop product home", async () => {
   const html = await response.text();
   assert.match(html, /<html lang="zh-CN"/i);
   assert.match(html, /<title>像素工坊｜免费图片转换、压缩与尺寸调整<\/title>/i);
-  assert.match(html, /选择图片或拖到这里/);
+  assert.match(html, /轻松处理图片/);
+  assert.match(html, /选择图片，马上开始。/);
+  assert.match(html, /从一张图片开始/);
   assert.match(html, /格式转换/);
-  assert.match(html, /压缩图片/);
+  assert.match(html, /文件体积/);
   assert.match(html, /调整尺寸/);
-  assert.match(html, /模板裁剪/);
-  assert.match(html, /本地处理，保护隐私/);
+  assert.match(html, /小红书/);
+  assert.match(html, /抖音/);
+  assert.match(html, /公众号/);
+  assert.match(html, /图片不会上传，关闭页面后不留痕迹/);
+  assert.doesNotMatch(html, /图片处理，<span>一步完成|免费、快速、无需上传/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|react-loading-skeleton/i);
 });
 
@@ -79,10 +84,16 @@ test("keeps production source and theme foundations in place", async () => {
   assert.match(page, /公众号首条封面/);
   assert.match(page, /公众号次条小图/);
   assert.match(page, /selectedPreset/);
+  assert.match(page, /beginPreset/);
+  assert.match(page, /className="image-stack"/);
+  assert.match(page, /className="home-tool-strip"/);
   assert.match(layout, /lang="zh-CN"/);
   assert.match(css, /:root\[data-theme="dark"\]/);
   assert.match(css, /@media \(max-width: 480px\)/);
   assert.match(css, /prefers-reduced-motion/);
+  assert.match(css, /prefers-reduced-transparency/);
+  assert.match(css, /\.preset-shortcuts/);
+  assert.match(css, /\.editor-workspace/);
   assert.match(packageJson, /"lucide-react"/);
   assert.match(packageJson, /node --test tests\/\*\.test\.mjs/);
   assert.match(packageJson, /"name": "pixel-workshop"/);
