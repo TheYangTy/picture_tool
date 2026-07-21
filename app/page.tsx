@@ -32,6 +32,7 @@ type Step = "home" | "editor" | "batch" | "templates" | "result";
 type Tool = "convert" | "compress" | "resize" | "crop";
 type OutputFormat = "jpeg" | "png" | "webp";
 type SizeMode = "compress" | "enlarge";
+type ResizeMode = "custom" | "scale";
 
 type ImageInfo = {
   file: File;
@@ -149,7 +150,9 @@ export default function Home() {
   const [quality, setQuality] = useState(82);
   const [resizeWidth, setResizeWidth] = useState(1200);
   const [resizeHeight, setResizeHeight] = useState(800);
-  const [ratioLocked, setRatioLocked] = useState(true);
+  const [resizeMode, setResizeMode] = useState<ResizeMode>("custom");
+  const [scalePercent, setScalePercent] = useState(100);
+  const [ratioLocked, setRatioLocked] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState(presets[0]);
   const [category, setCategory] = useState("常用比例");
   const [search, setSearch] = useState("");
@@ -200,6 +203,7 @@ export default function Home() {
       setResult(null);
       setResizeWidth(decoded.naturalWidth);
       setResizeHeight(decoded.naturalHeight);
+      setScalePercent(100);
       const detectedFormat: OutputFormat = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpeg";
       setOutputFormat(activeTool === "compress" && detectedFormat === "png" ? "webp" : detectedFormat);
       setStep(activeTool === "crop" ? "templates" : "editor");
@@ -300,6 +304,27 @@ export default function Home() {
     const safe = Math.max(1, Math.min(12000, value || 1));
     setResizeHeight(safe);
     if (ratioLocked) setResizeWidth(Math.round((safe / image.height) * image.width));
+  };
+
+  const selectResizeMode = (mode: ResizeMode) => {
+    setResizeMode(mode);
+    if (mode === "custom") {
+      setRatioLocked(false);
+      return;
+    }
+    setRatioLocked(true);
+    setScalePercent(100);
+    if (image) {
+      setResizeWidth(image.width);
+      setResizeHeight(image.height);
+    }
+  };
+
+  const applyScalePercent = (percent: number) => {
+    if (!image) return;
+    setScalePercent(percent);
+    setResizeWidth(Math.max(1, Math.round(image.width * percent / 100)));
+    setResizeHeight(Math.max(1, Math.round(image.height * percent / 100)));
   };
 
   const selectSizeMode = (mode: SizeMode) => {
@@ -608,8 +633,21 @@ export default function Home() {
 
           {error && <div className="error-banner" role="alert">{error}</div>}
 
-          <section className="home-presets" aria-labelledby="common-presets-heading">
-            <div className="home-section-heading"><h2 id="common-presets-heading">常用尺寸</h2><span>选择后载入图片</span></div>
+          <section className="home-tools" aria-labelledby="image-tools-heading">
+            <div className="home-section-heading"><h2 id="image-tools-heading">图片工具</h2><span>选择你要完成的任务</span></div>
+            <div className="home-tool-grid">
+              {tools.map(({ id, name, detail, icon: Icon, color }) => (
+                <button key={id} onClick={() => beginTool(id)}>
+                  <span className={`home-tool-icon ${color}`}><Icon size={18} /></span>
+                  <span><strong>{name}</strong><small>{detail}</small></span>
+                  <ArrowRight size={15} />
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="home-presets" aria-labelledby="platform-presets-heading">
+            <div className="home-section-heading"><h2 id="platform-presets-heading">热门平台尺寸</h2><span>一键进入模板裁剪</span></div>
             <div className="preset-shortcuts">
               {["xiaohongshu-note", "douyin-video", "wechat-featured"].map((id) => presets.find((preset) => preset.id === id)!).map((preset) => (
                 <button key={preset.id} onClick={() => beginPreset(preset)}>
@@ -620,10 +658,6 @@ export default function Home() {
               ))}
             </div>
           </section>
-
-          <div className="home-tool-strip" aria-label="图片工具">
-            {tools.map(({ id, name, icon: Icon }) => <button key={id} onClick={() => beginTool(id)}><Icon size={16} />{name}</button>)}
-          </div>
 
           <div className="home-privacy"><ShieldCheck size={15} /><span>图片不会上传，关闭页面后不留痕迹</span></div>
         </section>
@@ -753,15 +787,25 @@ export default function Home() {
 
                 {activeTool === "resize" && (
                   <div className="control-section">
-                    <div className="section-title"><div><h2>图片尺寸</h2><p>输入新的像素宽高</p></div></div>
-                    <div className="dimension-row">
-                      <label>宽度<div className="number-field"><input type="number" value={resizeWidth} onChange={(event) => updateWidth(Number(event.target.value))} /><span>px</span></div></label>
-                      <button className={`ratio-lock ${ratioLocked ? "active" : ""}`} onClick={() => setRatioLocked(!ratioLocked)} aria-label="锁定宽高比"><LockKeyhole size={16} /></button>
-                      <label>高度<div className="number-field"><input type="number" value={resizeHeight} onChange={(event) => updateHeight(Number(event.target.value))} /><span>px</span></div></label>
+                    <div className="section-title"><div><h2>调整尺寸</h2><p>自由输入宽高，或按原图比例缩放</p></div></div>
+                    <div className="size-mode-toggle resize-mode-toggle" role="group" aria-label="尺寸修改方式">
+                      <button className={resizeMode === "custom" ? "active" : ""} onClick={() => selectResizeMode("custom")}><Maximize2 size={15} />自由尺寸</button>
+                      <button className={resizeMode === "scale" ? "active" : ""} onClick={() => selectResizeMode("scale")}><Minimize2 size={15} />按比例缩放</button>
                     </div>
-                    <div className="quick-sizes">
-                      {[25, 50, 75, 100].map((percent) => <button key={percent} onClick={() => updateWidth(Math.round(image.width * percent / 100))}>{percent}%</button>)}
-                    </div>
+                    {resizeMode === "custom" ? <>
+                      <div className="dimension-row">
+                        <label>宽度<div className="number-field"><input aria-label="自由宽度" type="number" min="1" max="12000" value={resizeWidth} onChange={(event) => updateWidth(Number(event.target.value))} /><span>px</span></div></label>
+                        <button className={`ratio-lock ${ratioLocked ? "active" : ""}`} onClick={() => setRatioLocked(!ratioLocked)} aria-label={ratioLocked ? "解除宽高比锁定" : "锁定宽高比"}><LockKeyhole size={16} /></button>
+                        <label>高度<div className="number-field"><input aria-label="自由高度" type="number" min="1" max="12000" value={resizeHeight} onChange={(event) => updateHeight(Number(event.target.value))} /><span>px</span></div></label>
+                      </div>
+                      <p className="helper resize-helper">{ratioLocked ? "已锁定原图宽高比，修改一边会自动计算另一边。" : "宽度和高度可分别输入，适合制作任意自定义尺寸。"}</p>
+                    </> : <>
+                      <div className="scale-options" role="group" aria-label="缩放百分比">
+                        {[25, 50, 75, 100, 150, 200].map((percent) => <button key={percent} className={scalePercent === percent ? "active" : ""} onClick={() => applyScalePercent(percent)}><strong>{percent}%</strong><small>{Math.max(1, Math.round(image.width * percent / 100))} × {Math.max(1, Math.round(image.height * percent / 100))}</small></button>)}
+                      </div>
+                      <p className="helper resize-helper">始终保持原图宽高比，可缩小或放大到 200%。</p>
+                    </>}
+                    <div className="resize-output-preview"><span>输出尺寸</span><strong>{resizeWidth} × {resizeHeight} px</strong></div>
                   </div>
                 )}
 

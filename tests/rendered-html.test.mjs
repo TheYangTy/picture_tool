@@ -29,10 +29,12 @@ test("server-renders the Pixel Workshop product home", async () => {
   assert.match(html, /格式转换/);
   assert.match(html, /文件体积/);
   assert.match(html, /调整尺寸/);
+  assert.match(html, /热门平台尺寸/);
   assert.match(html, /小红书/);
   assert.match(html, /抖音/);
   assert.match(html, /公众号/);
   assert.match(html, /图片不会上传，关闭页面后不留痕迹/);
+  assert.ok(html.indexOf("图片工具") < html.indexOf("热门平台尺寸"));
   assert.doesNotMatch(html, /图片处理，<span>一步完成|免费、快速、无需上传/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|react-loading-skeleton/i);
 });
@@ -94,7 +96,13 @@ test("keeps production source and theme foundations in place", async () => {
   assert.match(page, /selectedPreset/);
   assert.match(page, /beginPreset/);
   assert.match(page, /className="image-stack"/);
-  assert.match(page, /className="home-tool-strip"/);
+  assert.match(page, /className="home-tool-grid"/);
+  assert.match(page, /type ResizeMode = "custom" \| "scale"/);
+  assert.match(page, /自由尺寸/);
+  assert.match(page, /按比例缩放/);
+  assert.match(page, /aria-label="自由宽度"/);
+  assert.match(page, /aria-label="自由高度"/);
+  assert.match(page, /applyScalePercent/);
   assert.match(layout, /lang="zh-CN"/);
   assert.match(css, /:root\[data-theme="dark"\]/);
   assert.match(css, /@media \(max-width: 480px\)/);
@@ -104,6 +112,9 @@ test("keeps production source and theme foundations in place", async () => {
   assert.match(css, /\.editor-workspace/);
   assert.match(css, /\.template-summary/);
   assert.match(css, /\.preset-empty/);
+  assert.match(css, /\.home-tool-grid/);
+  assert.match(css, /\.scale-options/);
+  assert.match(css, /\.resize-output-preview/);
   assert.match(packageJson, /"lucide-react"/);
   assert.match(packageJson, /node --test tests\/\*\.test\.mjs/);
   assert.match(packageJson, /"name": "pixel-workshop"/);
