@@ -562,3 +562,8 @@
 - GitHub 身份恢复：用户完成 GitHub 登录后，仓库 Actions Secrets 设置页可正常访问；确认目标为 `TheYangTy/picture_tool`，仓库此前没有 Repository secrets。
 - 密钥安全轮换：首次填写 Secret 时，旧私钥虽然由 GitHub 页面完成加密保存，但内容意外进入自动化调试输出；立即停止继续使用该密钥，退出表单、生成第二把独立 Ed25519 密钥，并通过可信 root 通道覆盖服务器 `pixeldeploy` 授权。验证旧密钥 SSH 返回 255、新密钥成功以 UID 1002 登录，随后删除本机旧私钥、公钥及测试输出。
 - Secrets 配置：将 GitHub 中已创建的 `TENCENT_DEPLOY_SSH_KEY` 更新为第二把新私钥，并新增已核对主机指纹的 `TENCENT_SSH_KNOWN_HOSTS`；返回 Secrets 列表确认两个名称各存在一项，页面不会显示 Secret 明文。
+- 合并发布：将 Draft PR #1 更新为可评审状态，以 squash 方式合并到 `main`，合并提交为 `d55792c`；GitHub 自动触发 `Deploy to Tencent Cloud` 工作流 #1。
+- Actions 验收：工作流 #1 状态为 Success，总耗时 1 分 29 秒；`Build and test` 39 秒完成，`Deploy production release` 44 秒完成，5 条 annotation 均为既有本地 Blob 图片预览的 `<img>` 性能提示，没有 error。
+- 独立复核：在 Actions 自身公网检查之外再次请求正式地址，`/pictool/` 与 `/pictool/api/health` 均返回 200，首页包含关键文案和 `/pictool/assets/` 前缀；服务器 `current` 指向完整 release `d55792ce0b2b72bd716622ff9649bcb369ba3737`，Git HEAD 一致，服务 active 且仍仅监听 `127.0.0.1:3000`。
+- 凭据清理：首次自动部署成功后，删除本机第二把临时私钥、公钥、known_hosts 副本和公网验证临时文件，并清理服务器 `/tmp` 下的一次性 bootstrap 目录；GitHub 加密 Secret、服务器受限公钥、root 所有发布程序及正式 release 保留。
+- 状态：GitHub Actions 自动部署已投入使用；以后推送或合并到 `main` 会自动完成测试、腾讯云发布、健康检查与失败回滚，也可从 Actions 页面手动触发。
