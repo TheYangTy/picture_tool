@@ -26,7 +26,7 @@ import {
   WandSparkles,
 } from "lucide-react";
 import { ChangeEvent, DragEvent, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent, useEffect, useMemo, useRef, useState } from "react";
-import { getCropSourceRect } from "./crop";
+import { getCropPositionAfterDrag, getCropSourceRect } from "./crop";
 import { padImageBlob } from "./image-padding";
 import { createZipBlob } from "./zip";
 
@@ -621,14 +621,19 @@ export default function Home() {
     const targetRatio = selectedPreset.width / selectedPreset.height;
     const baseWidthPercent = sourceRatio > targetRatio ? sourceRatio / targetRatio * 100 : 100;
     const baseHeightPercent = sourceRatio > targetRatio ? 100 : targetRatio / sourceRatio * 100;
-    const overflowX = rect.width * Math.max(0, baseWidthPercent * cropZoomRef.current / 100 - 1);
-    const overflowY = rect.height * Math.max(0, baseHeightPercent * cropZoomRef.current / 100 - 1);
+    const canMoveX = baseWidthPercent * cropZoomRef.current > 100;
+    const canMoveY = baseHeightPercent * cropZoomRef.current > 100;
     const deltaX = nextGesture.centerX - previous.centerX;
     const deltaY = nextGesture.centerY - previous.centerY;
-    setCropPosition((current) => ({
-      x: overflowX > 0 ? Math.min(100, Math.max(0, current.x - deltaX / overflowX * 100)) : 50,
-      y: overflowY > 0 ? Math.min(100, Math.max(0, current.y - deltaY / overflowY * 100)) : 50,
-    }));
+    setCropPosition((current) => getCropPositionAfterDrag(
+      current,
+      deltaX,
+      deltaY,
+      rect.width,
+      rect.height,
+      canMoveX,
+      canMoveY,
+    ));
     cropGestureRef.current = nextGesture;
   };
 

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getCropSourceRect } from "../app/crop.ts";
+import { getCropPositionAfterDrag, getCropSourceRect } from "../app/crop.ts";
 
 test("centers a cover crop at zoom 1", () => {
   const rect = getCropSourceRect(1600, 900, 1080, 1080, 1, 50, 50);
@@ -25,4 +25,30 @@ test("clamps zoom and crop position safely", () => {
   assert.ok(rect.sw > 0 && rect.sh > 0);
   assert.ok(rect.sx + rect.sw <= 800);
   assert.ok(rect.sy + rect.sh <= 1200);
+});
+
+test("reaches the horizontal edge within one crop-stage swipe", () => {
+  const rightEdge = getCropPositionAfterDrag(
+    { x: 50, y: 50 },
+    -170,
+    0,
+    340,
+    453,
+    true,
+    false,
+  );
+  assert.deepEqual(rightEdge, { x: 100, y: 50 });
+});
+
+test("clamps crop dragging and keeps non-overflowing axes centered", () => {
+  const position = getCropPositionAfterDrag(
+    { x: 95, y: 80 },
+    -500,
+    200,
+    340,
+    453,
+    true,
+    false,
+  );
+  assert.deepEqual(position, { x: 100, y: 50 });
 });

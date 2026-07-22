@@ -1,7 +1,25 @@
 export type CropSourceRect = { sx: number; sy: number; sw: number; sh: number };
+export type CropPosition = { x: number; y: number };
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+export function getCropPositionAfterDrag(
+  position: CropPosition,
+  deltaX: number,
+  deltaY: number,
+  stageWidth: number,
+  stageHeight: number,
+  canMoveX: boolean,
+  canMoveY: boolean,
+): CropPosition {
+  const safeWidth = Number.isFinite(stageWidth) && stageWidth > 0 ? stageWidth : 1;
+  const safeHeight = Number.isFinite(stageHeight) && stageHeight > 0 ? stageHeight : 1;
+  return {
+    x: canMoveX ? clamp(position.x - deltaX / safeWidth * 100, 0, 100) : 50,
+    y: canMoveY ? clamp(position.y - deltaY / safeHeight * 100, 0, 100) : 50,
+  };
 }
 
 export function getCropSourceRect(
